@@ -1,77 +1,112 @@
-🚀 VerifID Agent
+# 🛡️ VerifID Agent
 
-Sistema KYC (Know Your Customer) con Inteligencia Artificial orientado a validación documental, análisis de riesgo y generación automatizada de informes.
+<p align="center">
+  <img src="https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
+  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Claude-Anthropic-D97757?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/GDPR-Compliant-0072CE?style=for-the-badge"/>
+</p>
 
-Simula la arquitectura utilizada por fintechs y plataformas RegTech para procesos de verificación de identidad.
+<p align="center">
+  Sistema <strong>KYC (Know Your Customer)</strong> con Inteligencia Artificial orientado a validación documental, análisis de riesgo y generación automatizada de informes.<br/>
+  Simula la arquitectura utilizada por <strong>fintechs y plataformas RegTech</strong> para procesos de verificación de identidad.
+</p>
 
-📌 Estado Actual
+---
 
-Fecha: 7 de mayo de 2026
+## 📌 Estado Actual — 7 de mayo de 2026
 
-El backend se encuentra arquitectónicamente completo y funcional en entorno de pruebas.
-El frontend React está en integración activa.
+> El backend se encuentra **arquitectónicamente completo** y funcional en entorno de pruebas.  
+> El frontend React está en **integración activa**.
 
-El sistema permite ejecutar el flujo KYC completo desde entorno técnico (Postman), incluyendo:
+El sistema permite ejecutar el flujo KYC completo desde entorno técnico (Postman):
 
-Registro y autenticación con JWT
-Captura de datos personales
-Subida de documentación
-OCR con Tesseract
-Fuzzy matching
-Análisis AML / PEP
-Generación de informe narrativo con IA
-Emisión de PDF dinámico
+- ✅ Registro y autenticación con JWT
+- ✅ Captura de datos personales
+- ✅ Subida de documentación
+- ✅ OCR con Tesseract
+- ✅ Fuzzy matching de identidad
+- ✅ Análisis AML / PEP
+- ✅ Informe narrativo generado con IA
+- ✅ Emisión de PDF dinámico
 
-⚠️ Actualmente los módulos de OCR, fuzzy matching e integración AML/IA se encuentran en fase de calibración para mejorar precisión antes de despliegue en producción.
+> ⚠️ Los módulos de OCR, fuzzy matching e integración AML/IA están en **fase de calibración** para mejorar la precisión antes del despliegue en producción.
 
-🧱 Fases del Proyecto
-Fase	Estado
-Infraestructura (Monorepo + Prisma + Supabase)	✅ Completado
-Autenticación (JWT + bcrypt + GDPR)	✅ Completado
-Gestión Documental (OCR + Multer + Hash)	🟡 Implementado – En calibración
-IA y Scoring de Riesgo	🟡 Implementado – En validación
-Frontend React (UX multi-step)	🟡 En curso
-Despliegue (Railway + Vercel)	⏳ Pendiente
+---
 
-🏗 Arquitectura
-verifid-agent/
-├── backend/   → API REST + lógica KYC
-└── frontend/  → Interfaz React + flujo multi-step 
+## 🧱 Fases del Proyecto
 
-📂 Estructura del Proyecto
+| Fase | Estado |
+|------|--------|
+| Infraestructura (Monorepo + Prisma + Supabase) | ✅ Completado |
+| Autenticación (JWT + bcrypt + GDPR) | ✅ Completado |
+| Gestión Documental (OCR + Multer + Hash) | 🟡 Implementado — En calibración |
+| IA y Scoring de Riesgo | 🟡 Implementado — En validación |
+| Frontend React (UX multi-step) | 🟡 En curso |
+| Despliegue (Railway + Vercel) | ⏳ Pendiente |
+
+---
+
+## 🔎 Flujo KYC
+
+```
+Usuario → Registro/Login → Datos personales → Subida de documento
+                                                       ↓
+                                               OCR (Tesseract)
+                                                       ↓
+                                            Fuzzy Matching (fuzzball)
+                                                       ↓
+                                            AML / PEP Check (OpenSanctions)
+                                                       ↓
+                                            Análisis IA (Claude API)
+                                                       ↓
+                                               Scoring final
+                                                       ↓
+                                            Generación PDF (PDFKit)
+                                                       ↓
+                                     APPROVED / REVIEW / REJECTED
+```
+
+---
+
+## 📂 Estructura del Proyecto
+
+```
 verifid-agent/
 │
 ├── backend/
 │   ├── prisma/
-│   │   └── schema.prisma
+│   │   └── schema.prisma               # Esquema BD: users, verifications, documents, risk_assessments
 │   │
 │   ├── src/
 │   │   ├── controllers/
-│   │   │   ├── adminController.js
-│   │   │   ├── authController.js
-│   │   │   ├── userController.js
-│   │   │   └── verifyController.js
+│   │   │   ├── authController.js       # Registro/Login con bcrypt + JWT
+│   │   │   ├── verifyController.js     # Pipeline KYC completo
+│   │   │   ├── userController.js       # Gestión de perfil
+│   │   │   └── adminController.js      # Panel de administración
 │   │   │
 │   │   ├── lib/
-│   │   │   └── prisma.js
+│   │   │   └── prisma.js               # Cliente Prisma singleton
 │   │   │
 │   │   ├── middleware/
-│   │   │   ├── authMiddleware.js
-│   │   │   └── rateLimiter.js
+│   │   │   ├── authMiddleware.js       # Verificación JWT
+│   │   │   └── rateLimiter.js          # Rate limiting global
 │   │   │
 │   │   ├── routes/
-│   │   │   ├── admin.js
-│   │   │   ├── auth.js
-│   │   │   ├── user.js
-│   │   │   └── verify.js
+│   │   │   ├── auth.js                 # POST /api/auth/register, /login
+│   │   │   ├── verify.js               # POST /api/verify/start, /document, /result
+│   │   │   ├── user.js                 # GET  /api/user/profile
+│   │   │   └── admin.js                # GET  /api/admin/verifications
 │   │   │
 │   │   ├── services/
-│   │   │   ├── amlService.js
-│   │   │   ├── claudeService.js
-│   │   │   ├── ocrService.js
-│   │   │   └── pdfService.js
+│   │   │   ├── claudeService.js        # Proxy seguro → Anthropic Claude
+│   │   │   ├── ocrService.js           # Extracción de texto con Tesseract.js
+│   │   │   ├── amlService.js           # Consulta AML/PEP a OpenSanctions
+│   │   │   └── pdfService.js           # Generación de informes PDF con PDFKit
 │   │   │
-│   │   └── index.js
+│   │   └── index.js                    # Servidor Express (puerto 3000)
 │   │
 │   ├── uploads/
 │   ├── temp/
@@ -84,26 +119,20 @@ verifid-agent/
 │   │   └── icons.svg
 │   │
 │   ├── src/
-│   │   ├── assets/
-│   │   │   ├── hero.png
-│   │   │   ├── react.svg
-│   │   │   └── vite.svg
-│   │   │
 │   │   ├── components/
-│   │   │   ├── AuthForm.jsx
-│   │   │   └── UploadZone.jsx
+│   │   │   ├── AuthForm.jsx            # Registro/Login con consentimiento GDPR
+│   │   │   └── UploadZone.jsx          # Drag & drop de documentos
 │   │   │
-│   │   ├── hooks/
+│   │   ├── hooks/                      # (en desarrollo)
 │   │   │
 │   │   ├── pages/
-│   │   │   └── StepDatos.jsx
+│   │   │   └── StepDatos.jsx           # Formulario de datos personales (Step 1)
 │   │   │
 │   │   ├── services/
-│   │   │   └── api.js
+│   │   │   └── api.js                  # Axios con interceptores JWT
 │   │   │
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   ├── index.css
+│   │   ├── App.jsx                     # Router de pasos + polling
+│   │   ├── index.css                   # Sistema de diseño global
 │   │   └── main.jsx
 │   │
 │   ├── vite.config.js
@@ -112,160 +141,135 @@ verifid-agent/
 │
 ├── .gitignore
 └── README.md
+```
 
-Backend
+---
 
-Arquitectura en capas:
+## ⚙️ Stack Tecnológico
 
-Controllers → Gestión de requests
-Services → Lógica de negocio
-Routes → Definición de endpoints
-Middleware → Autenticación y seguridad
-Prisma ORM → Persistencia de datos
-Frontend
-Flujo guiado por pasos
-Polling automático de verificación
-Gestión de sesión con JWT
-Interfaz responsive con React + Vite
+| Capa | Tecnología |
+|------|------------|
+| Runtime | Node.js 18+ |
+| Framework API | Express |
+| ORM | Prisma + PostgreSQL |
+| Base de datos cloud | Supabase |
+| Autenticación | JWT + bcryptjs |
+| OCR | Tesseract.js |
+| Fuzzy Matching | fuzzball |
+| IA generativa | Anthropic Claude API |
+| AML/PEP | OpenSanctions API |
+| PDF | PDFKit |
+| Frontend | React + Vite |
+| HTTP Client | Axios |
 
-⚙️ Stack Tecnológico
-Backend
-Node.js
-Express
-Prisma ORM
-PostgreSQL (Supabase)
-JWT
-bcryptjs
-Multer
-Tesseract.js
-fuzzball (Fuzzy Matching)
-Anthropic Claude API
-OpenSanctions API
-PDFKit
-Frontend
-React
-Vite
-Axios
-React Hooks
-CSS Grid
+---
 
-🔎 Flujo KYC
-Usuario
-   ↓
-Registro / Login
-   ↓
-Datos personales
-   ↓
-Subida de documento
-   ↓
-OCR (Tesseract)
-   ↓
-Fuzzy Matching
-   ↓
-AML / PEP Check
-   ↓
-Análisis IA (Claude)
-   ↓
-Scoring final
-   ↓
-Generación PDF
-   ↓
-Resultado KYC
+## 🔧 Instalación
 
-🔐 Seguridad Implementada
-Autenticación JWT con expiración
-Hashing bcrypt (cost 12)
-Consentimiento GDPR obligatorio con timestamp
-Rate limiting
-Procesamiento documental en memoria
-Hash SHA-256 de documentos
-Proxy seguro para APIs externas
-Fallbacks ante errores de red
+### Backend
 
-📊 Estado Técnico Detallado Backend
-
-✔ Arquitectura estable
-✔ Endpoints principales operativos
-✔ Pipeline KYC implementado
-✔ Generación PDF funcional
-
-🟡 OCR requiere mejora en reconocimiento con documentos ficticios
-🟡 Umbral de fuzzy matching en ajuste
-🟡 Validación real de coincidencias AML pendiente
-🟡 Refinamiento de prompts IA en progreso
-
-El sistema es funcional estructuralmente, pero se encuentra en fase de optimización de precisión.
-
-Frontend
-
-✔ Autenticación implementada
-✔ Captura de datos personales
-✔ Subida documental
-✔ Polling de verificación
-
-Pendiente:
-
-StepAnalisis.jsx
-StepResultado.jsx
-RiskScoreGrid
-Hook useVerification
-Testing UX completo
-
-🔧 Instalación
-Backend
+```bash
 cd backend
 npm install
 npx prisma generate
 npx prisma migrate dev
 npm run dev
-Frontend
+# → http://localhost:3000
+```
+
+### Frontend
+
+```bash
 cd frontend
 npm install
 npm run dev
+# → http://localhost:5173
+```
 
-🌱 Variables de Entorno
-Backend (.env)
-DATABASE_URL=
-JWT_SECRET=
-ANTHROPIC_API_KEY=
-OPENSANCTIONS_API_KEY=
+---
+
+## 🌱 Variables de Entorno
+
+### `backend/.env`
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/verifid
+JWT_SECRET=tu_secreto_seguro_minimo_32_caracteres
+ANTHROPIC_API_KEY=sk-ant-...
+OPENSANCTIONS_API_KEY=          # Dejar vacío activa el modo simulación
 PORT=3000
-Frontend (.env)
+```
+
+### `frontend/.env`
+
+```env
 VITE_API_URL=http://localhost:3000
+```
 
-🚧 Próximos Pasos
-Ajustar umbral de fuzzy matching
-Mejorar preprocesamiento OCR
-Validar coincidencias AML reales
-Refinar prompts IA
-Finalizar pantallas de resultados
-Ejecutar casos de prueba estructurados
-Despliegue Railway (backend) + Vercel (frontend)
+---
 
-🎯 Objetivo del Proyecto
+## 🔐 Seguridad Implementada
 
-Construir una arquitectura KYC moderna y modular que pueda evolucionar hacia:
+- Autenticación JWT con expiración configurable
+- Hashing de contraseñas con bcrypt (cost 12)
+- Consentimiento GDPR obligatorio con timestamp de auditoría
+- Rate limiting global contra abuso de API
+- Procesamiento documental en memoria (sin escritura en disco)
+- Hash SHA-256 de cada documento procesado
+- Proxy seguro para APIs externas (la clave de Anthropic nunca sale al cliente)
+- Fallbacks ante errores de red (prioridad seguridad > disponibilidad)
 
-Biometría facial
-Detección antifraude avanzada
-Panel administrativo
-Workflows empresariales
-Trazabilidad regulatoria
+---
 
-💡 Valor Técnico
+## 📊 Estado Técnico Detallado
 
-Este proyecto demuestra integración real de:
+### Backend
+- ✅ Arquitectura en capas estable
+- ✅ Endpoints principales operativos
+- ✅ Pipeline KYC implementado de extremo a extremo
+- ✅ Generación PDF funcional
+- 🟡 OCR en calibración con documentos de prueba
+- 🟡 Umbral de fuzzy matching en ajuste
+- 🟡 Validación AML real pendiente de API Key
+- 🟡 Refinamiento de prompts IA en progreso
 
-IA generativa
-OCR
-Análisis AML
-Arquitectura asíncrona
-Procesamiento documental seguro
-Diseño fullstack desacoplado
+### Frontend
+- ✅ Autenticación (AuthForm)
+- ✅ Captura de datos personales (StepDatos)
+- ✅ Subida documental (UploadZone)
+- ✅ Polling automático de verificación (App.jsx)
+- ⏳ StepAnalisis.jsx
+- ⏳ StepResultado.jsx
+- ⏳ RiskScoreGrid
+- ⏳ Hook useVerification
 
-La complejidad principal reside en la coordinación de múltiples servicios asíncronos dentro de un pipeline coherente de verificación.
+---
 
-👨‍💻 Autor
+## 🚧 Próximos Pasos
 
-Ezel Alexander Duque Arias
-Proyecto desarrollado como sistema de prácticas enfocado en arquitectura fullstack aplicada a KYC, IA y análisis de riesgo.
+- [ ] Ajustar umbral de fuzzy matching
+- [ ] Mejorar preprocesamiento de imagen para OCR
+- [ ] Validar coincidencias AML con API Key real
+- [ ] Refinar prompts de análisis narrativo con Claude
+- [ ] Finalizar pantallas de resultados (StepAnalisis, StepResultado)
+- [ ] Ejecutar plan de pruebas TC-01 a TC-08
+- [ ] Despliegue: Railway (backend) + Vercel (frontend)
+
+---
+
+## 🎯 Objetivo del Proyecto
+
+Construir una arquitectura KYC moderna y modular que pueda evolucionar hacia biometría facial, detección antifraude avanzada, panel administrativo, workflows empresariales y trazabilidad regulatoria completa.
+
+La complejidad principal reside en la **coordinación de múltiples servicios asíncronos** dentro de un pipeline coherente de verificación, replicando los estándares de una plataforma RegTech real.
+
+---
+
+## 👨‍💻 Autor
+
+**Ezel Alexander Duque Arias**  
+Proyecto de prácticas enfocado en arquitectura fullstack aplicada a KYC, IA y análisis de riesgo.
+
+---
+
+<p align="center"><em>VerifID Agent · 2026</em></p>
