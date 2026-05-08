@@ -59,7 +59,8 @@ async function startVerification(req, res, next) {
 async function uploadDocument(req, res, next) {
   try {
     const { id } = req.params;
-    const { side } = req.body;
+    // FIX: leer también docType desde el body del upload
+    const { side, docType: docTypeFromBody } = req.body;
 
     if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo de imagen.' });
 
@@ -95,9 +96,10 @@ async function uploadDocument(req, res, next) {
     const existingDocs = await prisma.document.findMany({ where: { verificationId: id, id: { not: newDoc.id } } });
     const allDocs = [...existingDocs, newDoc];
 
-    // Tipos que solo requieren el anverso
+    // FIX: usar docType del body como fuente principal, con fallback a declaredData
     const SINGLE_SIDE_TYPES = ['Pasaporte', 'Cédula'];
-    const isReady = SINGLE_SIDE_TYPES.includes(userData.docType) ? allDocs.length >= 1 : allDocs.length >= 2;
+    const effectiveDocType = docTypeFromBody || userData.docType;
+    const isReady = SINGLE_SIDE_TYPES.includes(effectiveDocType) ? allDocs.length >= 1 : allDocs.length >= 2;
 
     if (isReady) {
       runFullAnalysis(id, req.user.userId, allDocs, userData).catch(console.error);
