@@ -101,4 +101,5 @@ enum DocType {
   PASAPORTE
   NIE
   CARNET_CONDUCIR
+  CEDULA
 }

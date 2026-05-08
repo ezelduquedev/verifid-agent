@@ -3,15 +3,11 @@ const { v4: uuidv4 }   = require('uuid');
 const crypto           = require('crypto');
 const fuzz             = require('fuzzball'); 
 
-// Importación de servicios externos
 const { runOCR }       = require('../services/ocrService');
 const { callClaude }   = require('../services/claudeService');
 const { checkAML }     = require('../services/amlService');
 const { generatePDF }  = require('../services/pdfService');
 
-/**
- * Helper para normalizar datos del frontend
- */
 function normalizeUserData(body) {
   return {
     nombre:   body.firstName,
@@ -26,10 +22,6 @@ function normalizeUserData(body) {
   };
 }
 
-/**
- * 1. INICIAR VERIFICACIÓN (POST /api/verify/start)
- * Crea el registro inicial y guarda los datos declarados para el cruce posterior.
- */
 async function startVerification(req, res, next) {
   try {
     const userData = normalizeUserData(req.body);
@@ -64,14 +56,10 @@ async function startVerification(req, res, next) {
   }
 }
 
-/**
- * 2. SUBIR DOCUMENTO (POST /api/verify/:id/document)
- * Procesa las imágenes, extrae texto mediante OCR y dispara el análisis al completar las caras.
- */
 async function uploadDocument(req, res, next) {
   try {
     const { id } = req.params;
-    const { side } = req.body; // 'front' o 'back'
+    const { side } = req.body;
 
     if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo de imagen.' });
 
@@ -82,7 +70,6 @@ async function uploadDocument(req, res, next) {
     const assessment = await prisma.riskAssessment.findUnique({ where: { verificationId: id } });
     const userData   = assessment?.declaredData || {};
 
-    // Ejecución de OCR (Tesseract / Cloud Vision)
     let ocrResult = null;
     try {
       ocrResult = await runOCR(req.file.buffer);
@@ -92,7 +79,7 @@ async function uploadDocument(req, res, next) {
 
     const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
     const storageUrl = `local://${id}/${side}_${Date.now()}.jpg`;
-    const mapType = { DNI: 'DNI', NIE: 'NIE', Pasaporte: 'PASAPORTE' };
+    const mapType = { DNI: 'DNI', NIE: 'NIE', Pasaporte: 'PASAPORTE', Cédula: 'CEDULA' };
 
     const newDoc = await prisma.document.create({
       data: {
@@ -105,15 +92,14 @@ async function uploadDocument(req, res, next) {
       },
     });
 
-    // Verificar si tenemos todos los documentos necesarios
     const existingDocs = await prisma.document.findMany({ where: { verificationId: id, id: { not: newDoc.id } } });
     const allDocs = [...existingDocs, newDoc];
 
-    const isPassport = userData.docType === 'Pasaporte';
-    const isReady = isPassport ? allDocs.length >= 1 : allDocs.length >= 2;
+    // Tipos que solo requieren el anverso
+    const SINGLE_SIDE_TYPES = ['Pasaporte', 'Cédula'];
+    const isReady = SINGLE_SIDE_TYPES.includes(userData.docType) ? allDocs.length >= 1 : allDocs.length >= 2;
 
     if (isReady) {
-      // El análisis corre en segundo plano para no bloquear la respuesta
       runFullAnalysis(id, req.user.userId, allDocs, userData).catch(console.error);
     }
 
@@ -127,19 +113,13 @@ async function uploadDocument(req, res, next) {
   }
 }
 
-/**
- * 3. LÓGICA DE ANÁLISIS (Interna)
- * Realiza el cruce de datos, scoring y validación AML.
- */
 async function runFullAnalysis(verificationId, userId, docs, userData) {
   try {
     await prisma.verification.update({ where: { id: verificationId }, data: { status: 'PROCESSING' } });
 
-    // Consolidar texto de todas las fotos
     const fullTextOCR = docs.map(d => d.ocrResult || '').join(' ').toUpperCase();
     const cleanOCR = fullTextOCR.replace(/[\n\r]/g, ' ');
 
-    // Lógica Difusa (Fuzzy Match): Umbral del 75%
     const nameSim  = fuzz.partial_ratio(userData.nombre.toUpperCase(), cleanOCR);
     const docIdSim = fuzz.partial_ratio(userData.ndoc.toUpperCase(), cleanOCR);
     
@@ -148,7 +128,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
 
     const scores = calculateScores(userData, docs);
 
-    // Ajuste dinámico de confianza
     if (nameMatch || docIdMatch) {
       scores.trustScore = Math.max(95, scores.trustScore); 
       scores.result = 'approved';
@@ -157,10 +136,8 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       if (scores.trustScore < 60) scores.result = 'review';
     }
 
-    // Validación AML
     const amlResult = await checkAML(`${userData.nombre} ${userData.apellido}`);
     
-    // Generar informe narrativo con Claude
     let aiReport = "";
     try {
       aiReport = await callClaude(userData, scores, amlResult);
@@ -172,7 +149,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const finalStatus = scores.result === 'approved' ? 'APPROVED' : (scores.result === 'review' ? 'REVIEW' : 'REJECTED');
     const riskLevel = scores.trustScore >= 80 ? 'LOW' : (scores.trustScore >= 50 ? 'MEDIUM' : 'HIGH');
 
-    // Guardar resultados finales
     await prisma.riskAssessment.update({
       where: { verificationId },
       data: { amlCheck: amlResult, ocrMatch: nameMatch && docIdMatch, aiReport, riskLevel }
@@ -194,9 +170,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
   }
 }
 
-/**
- * 4. OBTENER RESULTADO (GET /api/verify/:id/result)
- */
 async function getResult(req, res, next) {
   try {
     const verif = await prisma.verification.findUnique({
@@ -225,9 +198,6 @@ async function getResult(req, res, next) {
   }
 }
 
-/**
- * 5. DESCARGAR REPORTE (GET /api/verify/:id/report)
- */
 async function downloadReport(req, res, next) {
   try {
     const verif = await prisma.verification.findUnique({
@@ -240,7 +210,6 @@ async function downloadReport(req, res, next) {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
 
-    // Recuperamos los datos del usuario del campo declaredData
     const userData = verif.riskAssessment?.declaredData || {};
     const pdfBuffer = await generatePDF(verif, userData);
 
@@ -254,16 +223,13 @@ async function downloadReport(req, res, next) {
   }
 }
 
-/**
- * LÓGICA DE CÁLCULO DE SCORES
- */
 function calculateScores(userData, docs) {
-  let doc = 95; // Base alta para DNI físico
+  let doc = 95;
   if (docs.length >= 2) doc += 4;
   if (userData.pais === 'España') doc += 1;
   
   doc = Math.min(99, doc);
-  let fraud = 2; // Riesgo base muy bajo
+  let fraud = 2;
 
   const trust = Math.round((doc * 0.8) + ((100 - fraud) * 0.2));
   return { docScore: doc, fraudScore: fraud, trustScore: trust, result: 'approved' };
