@@ -4,8 +4,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "test": "jest"
+    "postinstall" : "prisma generate",
+    "dev": "nodemon src/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.94.0",
