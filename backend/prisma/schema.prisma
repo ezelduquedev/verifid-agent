@@ -71,7 +71,8 @@ model RiskAssessment {
   faceMatch      Float?   @map("face_match")
   ocrMatch       Boolean? @map("ocr_match") // Validación cruzada
   aiReport       String?  @map("ai_report") // Informe narrativo de Claude/IA
-  
+  amlAlert       Boolean  @default(false) @map("aml_alert") // Se añade para activar "sujetos" que son amenaza en el sistema
+
   // CORRECCIÓN: Se añade @default(now()) para evitar el error de "Null constraint" en la creación
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
