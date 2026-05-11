@@ -12,7 +12,7 @@ const GdprBox = () => (
     </p>
     <ul style={{ margin: 0, paddingLeft: '15px', textAlign: 'left' }}>
       <li>Datos identificativos y contacto.</li>
-      <li>Datos biométricos (DNI/NIE).</li>
+      <li>Datos biométricos (DNI, NIE, Pasaporte, Cédula).</li>
       <li>Token de sesión JWT (localStorage).</li>
     </ul>
   </div>

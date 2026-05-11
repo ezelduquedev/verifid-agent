@@ -85,7 +85,7 @@ async function uploadDocument(req, res, next) {
       data: {
         id: uuidv4(),
         verificationId: id,
-        type: mapType[userData.docType] || 'DNI',
+        type: mapType[docTypeFromBody] || mapType[userData.docType] || 'DNI',
         storageUrl,
         ocrResult,
         hash,
