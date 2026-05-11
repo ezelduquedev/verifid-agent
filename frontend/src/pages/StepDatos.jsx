@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { verifyService } from '../services/api'
 
-// ── Field helper ─────────────────────────────────────────────────────────────
 const Field = ({ label, children }) => (
   <div style={{ marginBottom: '16px' }}>
     <label style={{
@@ -44,7 +43,6 @@ const Input = ({ name, type = 'text', placeholder, onChange, required, value }) 
   />
 )
 
-// ── Componente principal ─────────────────────────────────────────────────────
 const StepDatos = ({ onStepComplete }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -79,7 +77,6 @@ const StepDatos = ({ onStepComplete }) => {
 
   return (
     <div>
-      {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
           <div style={{
@@ -109,7 +106,6 @@ const StepDatos = ({ onStepComplete }) => {
       <form onSubmit={handleSubmit}>
         <div className="card" style={{ marginBottom: '12px' }}>
 
-          {/* Nombre + Apellidos */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Field label="Nombre">
               <Input name="firstName" placeholder="María" onChange={handleChange} required />
@@ -119,12 +115,10 @@ const StepDatos = ({ onStepComplete }) => {
             </Field>
           </div>
 
-          {/* Documento */}
           <Field label="Número de Documento (DNI / NIE / Pasaporte)">
             <Input name="documentNumber" placeholder="12345678X" onChange={handleChange} required />
           </Field>
 
-          {/* Fecha + Nacionalidad */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Field label="Fecha de Nacimiento">
               <Input name="birthDate" type="date" onChange={handleChange} required />
@@ -134,33 +128,43 @@ const StepDatos = ({ onStepComplete }) => {
             </Field>
           </div>
 
-          {/* Email (prellenado, readonly visual) */}
+          {/* Email bloqueado — viene del registro, no editable */}
           <Field label="Correo electrónico">
-            <input
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              style={{
-                ...inputStyle,
-                background: 'var(--code-bg)',
-                color: 'var(--text)',
-                cursor: 'default',
-              }}
-              onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                name="email"
+                type="email"
+                value={formData.email}
+                readOnly
+                style={{
+                  ...inputStyle,
+                  background: '#f1f5f9',
+                  color: 'var(--text)',
+                  cursor: 'not-allowed',
+                  borderColor: 'var(--border)',
+                  paddingRight: '36px',
+                }}
+              />
+              {/* Icono candado */}
+              <span style={{
+                position: 'absolute', right: '12px', top: '50%',
+                transform: 'translateY(-50%)', pointerEvents: 'none',
+                color: '#94a3b8',
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+            </div>
           </Field>
 
-          {/* Teléfono */}
           <Field label="Teléfono">
             <Input name="phone" type="tel" placeholder="+34 600 000 000" onChange={handleChange} required />
           </Field>
 
         </div>
 
-        {/* Aviso */}
         <div style={{
           display: 'flex',
           gap: '10px',

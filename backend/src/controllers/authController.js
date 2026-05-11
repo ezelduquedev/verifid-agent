@@ -2,7 +2,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 
-// Función Register
 const register = async (req, res) => {
   try {
     const { email, password, gdpr_consent } = req.body;
@@ -33,9 +32,9 @@ const register = async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.status(201).json({ 
-      token, 
-      user: { id: user.id, email: user.email, role: user.role } 
+    res.status(201).json({
+      token,
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (error) {
     console.error('Error en registro:', error);
@@ -43,7 +42,6 @@ const register = async (req, res) => {
   }
 };
 
-// Función Login
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -51,7 +49,7 @@ const login = async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash); 
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) return res.status(401).json({ error: 'Credenciales inválidas' });
 
     const token = jwt.sign(
@@ -67,8 +65,36 @@ const login = async (req, res) => {
   }
 };
 
-// EXPORTACIÓN UNIFICADA
-module.exports = {
-  register,
-  login
+// ── Restablecer contraseña ────────────────────────────────────────────────────
+const resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email y nueva contraseña son obligatorios.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Respuesta genérica para no revelar si el email existe
+      return res.status(200).json({ message: 'Si el email está registrado, la contraseña ha sido actualizada.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { email },
+      data: { passwordHash: hashedPassword }
+    });
+
+    res.json({ message: 'Contraseña actualizada correctamente.' });
+  } catch (error) {
+    console.error('Error en resetPassword:', error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
 };
+
+module.exports = { register, login, resetPassword };

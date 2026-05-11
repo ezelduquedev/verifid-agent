@@ -1,13 +1,12 @@
 const PDFDocument = require('pdfkit');
 
-/**
- * Genera un PDF en memoria y devuelve un Buffer.
- * Incluye bloque visual de alerta AML para sujetos de alta peligrosidad.
- */
 async function generatePDF(verif, userData) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ 
+    const doc = new PDFDocument({
       margin: 50,
+      size: 'A4',
+      autoFirstPage: true,
+      bufferPages: true,
       info: { Title: `Informe VerifID - ${verif.id}` }
     });
 
@@ -27,18 +26,16 @@ async function generatePDF(verif, userData) {
 
     // ─── BLOQUE DE RESULTADO ─────────────────────────────────────────────
     const statusColor = isApproved ? '#27ae60' : '#e74c3c';
-    doc.rect(50, doc.y, 500, 40).fill('#f8f9fa');
-    doc.fillColor(statusColor).fontSize(16).text(`RESULTADO: ${verif.status}`, 60, doc.y + 12);
+    const resultY = doc.y;
+    doc.rect(50, resultY, 500, 40).fill('#f8f9fa');
+    doc.fillColor(statusColor).fontSize(16).text(`RESULTADO: ${verif.status}`, 60, resultY + 12);
     doc.moveDown(2.5);
 
-    // ─── ⚠️  BLOQUE DE ALERTA AML (solo si hay coincidencia) ─────────────
+    // ─── BLOQUE DE ALERTA AML ─────────────────────────────────────────────
     if (isAmlAlert) {
       const alertY = doc.y;
-      // Fondo rojo con borde
       doc.rect(50, alertY, 500, 80).fill('#fdf2f2').stroke('#e74c3c');
-      // Franja roja lateral
       doc.rect(50, alertY, 8, 80).fill('#e74c3c');
-
       doc.fillColor('#c0392b').fontSize(13).font('Helvetica-Bold')
         .text('⚠  ALERTA DE ALTA PELIGROSIDAD — SUJETO SANCIONADO', 68, alertY + 10);
       doc.font('Helvetica').fontSize(9).fillColor('#333333')
@@ -71,7 +68,6 @@ async function generatePDF(verif, userData) {
       .fillColor(statusColor).text(`${verif.riskScore}%`).fillColor('#000');
     doc.text(`Validación OCR: ${verif.riskAssessment?.ocrMatch ? 'EXITOSA (COINCIDENCIA DETECTADA)' : 'DISCREPANCIA DETECTADA'}`);
 
-    // AML con color según resultado
     const amlText = verif.riskAssessment?.amlCheck || 'No procesado';
     doc.text('AML/PEP Status: ', { continued: true })
       .fontSize(10)
@@ -87,12 +83,19 @@ async function generatePDF(verif, userData) {
     doc.fillColor('#333').fontSize(10)
       .text(verif.riskAssessment?.aiReport || 'Sin informe narrativo disponible.', { align: 'justify' });
 
-    // ─── PIE DE PÁGINA ────────────────────────────────────────────────────
-    const footerY = doc.page.height - 70;
-    doc.moveTo(50, footerY).lineTo(550, footerY).stroke('#bdc3c7');
+    // ─── PIE DE PÁGINA — pegado al contenido, sin salto de página ─────────
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#bdc3c7');
+    doc.moveDown(0.3);
     doc.fontSize(8).fillColor('#888888')
-      .text('Este documento ha sido generado automáticamente y contiene datos sensibles sujetos al RGPD.', 50, footerY + 10, { align: 'center' });
+      .text('Este documento ha sido generado automáticamente y contiene datos sensibles sujetos al RGPD.', { align: 'center' });
     doc.text(`Fecha del informe: ${new Date().toLocaleString()} | ID: ${verif.id.slice(0, 8)}`, { align: 'center' });
+
+    // Eliminar páginas en blanco extra antes de cerrar
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+    }
 
     doc.end();
   });

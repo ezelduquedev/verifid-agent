@@ -32,8 +32,98 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, icon, right
   </div>
 )
 
+// ── Vista de recuperación de contraseña ───────────────────────────────────────
+const ForgotPassword = ({ onBack }) => {
+  const [email, setEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleReset = async (e) => {
+    e.preventDefault()
+    if (!email || !newPassword) { setError('Rellena los dos campos.'); return }
+    if (newPassword.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return }
+    setLoading(true)
+    setError('')
+    try {
+      await authService.resetPassword(email, newPassword)
+      setSuccess(true)
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo restablecer la contraseña.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (success) {
+    return (
+      <div style={{ textAlign: 'center', padding: '20px 0' }}>
+        <div style={{ fontSize: '36px', marginBottom: '12px' }}>✅</div>
+        <h3 style={{ color: '#0f172a', margin: '0 0 8px' }}>Contraseña actualizada</h3>
+        <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>
+          Ya puedes iniciar sesión con tu nueva contraseña.
+        </p>
+        <button onClick={onBack} style={{ width: 'auto', padding: '10px 24px' }}>
+          Volver al inicio de sesión
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>Restablecer contraseña</h2>
+        <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
+          Introduce tu email y una nueva contraseña.
+        </p>
+      </div>
+
+      <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
+        <Field
+          label="Email registrado"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="tu@email.com"
+          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
+        />
+        <Field
+          label="Nueva contraseña"
+          type="password"
+          value={newPassword}
+          onChange={e => setNewPassword(e.target.value)}
+          placeholder="Mínimo 6 caracteres"
+          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
+        />
+      </div>
+
+      {error && <div style={{ color: '#dc2626', fontSize: '12px', marginBottom: '10px', textAlign: 'center' }}>{error}</div>}
+
+      <button onClick={handleReset} disabled={loading}>
+        {loading ? 'Actualizando...' : 'Cambiar contraseña'}
+      </button>
+
+      <p style={{ textAlign: 'center', marginTop: '15px', fontSize: '13px', color: '#64748b' }}>
+        <span onClick={onBack} style={{ color: '#2563eb', fontWeight: 600, cursor: 'pointer' }}>
+          ← Volver al inicio de sesión
+        </span>
+      </p>
+    </div>
+  )
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
 const AuthForm = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(false)
+  const [isForgot, setIsForgot] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -41,15 +131,19 @@ const AuthForm = ({ onAuthSuccess }) => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  if (isForgot) {
+    return <ForgotPassword onBack={() => { setIsForgot(false); setIsLogin(true) }} />
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!isLogin && !consent) { setError('Debes aceptar el tratamiento de datos.'); return; }
     setError(''); setLoading(true)
     try {
-      let response = isLogin 
-        ? await authService.login(email, password) 
+      let response = isLogin
+        ? await authService.login(email, password)
         : await authService.register(email, password, true)
-      
+
       localStorage.setItem('verifid_token', response.data.token)
       localStorage.setItem('verifid_email', email)
       onAuthSuccess(response.data.user || { email })
@@ -75,6 +169,18 @@ const AuthForm = ({ onAuthSuccess }) => {
       <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
         <Field label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>} />
         <Field label="Contraseña" type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>} rightSlot={<span onClick={() => setShowPwd(!showPwd)}>👁️</span>} />
+
+        {/* Olvidé mi contraseña — solo en modo login */}
+        {isLogin && (
+          <div style={{ textAlign: 'right', marginTop: '-8px' }}>
+            <span
+              onClick={() => setIsForgot(true)}
+              style={{ fontSize: '11px', color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}
+            >
+              ¿Olvidaste tu contraseña?
+            </span>
+          </div>
+        )}
       </div>
 
       {!isLogin && <GdprBox />}

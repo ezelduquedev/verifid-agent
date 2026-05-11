@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController'); // Sin extensión
+const authController = require('../controllers/authController');
 
-// Verificación de seguridad: si el controlador no cargó, lanzamos un error claro
 if (!authController) {
-    throw new Error("No se pudo cargar authController. Revisa la ruta en src/routes/auth.js");
+  throw new Error("No se pudo cargar authController. Revisa la ruta en src/routes/auth.js");
 }
 
-// Estas rutas son públicas
-router.post('/register', authController.register); 
+// Rutas públicas
+router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/reset-password', authController.resetPassword);
 
 module.exports = router;
