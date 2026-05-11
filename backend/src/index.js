@@ -13,13 +13,13 @@ const { globalLimiter } = require('./middleware/rateLimiter');
 
 const app  = express();
 
-// --- CAMBIO TEMPORAL: FORZAMOS EL PUERTO 3001 ---
-const PORT = 3001; 
+// --- CAMBIO PERMANENTE ---
+const PORT = process.env.PORT || 3001;
 
 // ─── Seguridad ────────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({
-  origin: true, // Permitimos todo temporalmente para probar
+  origin: process.env.FRONTEND_URL,
   credentials: true,
 }));
 
