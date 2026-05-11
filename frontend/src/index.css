@@ -9,35 +9,68 @@
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #1d4ed8; 
+  --accent: #1d4ed8;
+  --accent-bg: rgba(29, 78, 216, 0.06);
+  --accent-border: rgba(29, 78, 216, 0.2);
   --success: #22c55e;
   --sans: system-ui, -apple-system, sans-serif;
   font: 16px/1.4 var(--sans);
 }
 
-body { 
-  margin: 0; 
-  -webkit-font-smoothing: antialiased; 
-  background: var(--bg); 
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
 }
 
-#root { 
-  width: 100%; 
-  min-height: 100vh; 
-  display: flex; 
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
   flex-direction: column;
-  align-items: center; /* ESTO CENTRA TODO EL CONTENIDO */
+  align-items: center;
 }
 
+/* ─── Fondo login con patrón de puntos sutil ──────────────────────────────── */
+.login-bg {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8faff;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(29, 78, 216, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(29, 78, 216, 0.04) 0%, transparent 50%),
+    radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 24px 24px;
+  padding: 24px;
+}
+
+/* ─── Card ────────────────────────────────────────────────────────────────── */
 .card {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem;
-  width: 100%; /* Para que ocupe el ancho del main */
-  box-shadow: rgba(0, 0, 0, 0.05) 0 10px 15px -3px;
+  width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04), 0 10px 15px -3px rgba(0,0,0,0.05);
 }
 
+/* Card especial para login — sombra más pronunciada */
+.card-login {
+  background: #fff;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 16px;
+  padding: 28px 24px;
+  width: 100%;
+  box-shadow:
+    0 0 0 1px rgba(29,78,216,0.04),
+    0 4px 6px -1px rgba(0,0,0,0.06),
+    0 20px 40px -8px rgba(29,78,216,0.12);
+}
+
+/* ─── Labels ──────────────────────────────────────────────────────────────── */
 label {
   display: block;
   font-size: 12px;
@@ -47,6 +80,7 @@ label {
   text-align: left;
 }
 
+/* ─── Inputs ──────────────────────────────────────────────────────────────── */
 input {
   width: 100%;
   display: block;
@@ -56,8 +90,15 @@ input {
   color: #1e3a5f;
   font-size: 14px;
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.08);
+}
+
+/* ─── Botones ─────────────────────────────────────────────────────────────── */
 button {
   width: 100%;
   padding: 12px;
@@ -67,13 +108,67 @@ button {
   border-radius: 10px;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
 }
 
-button:disabled { opacity: 0.6; cursor: not-allowed; }
+button:hover:not(:disabled) {
+  background: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(29, 78, 216, 0.35);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .btn-secondary {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
   margin-top: 10px;
+  box-shadow: none;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--code-bg);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── Barra de progreso — steps más legibles ──────────────────────────────── */
+.progress-step-inactive {
+  color: #94a3b8;
+}
+
+.progress-step-inactive .step-circle {
+  background: #cbd5e1;
+}
+
+/* ─── Error msg ───────────────────────────────────────────────────────────── */
+.error-msg {
+  color: #dc2626;
+  font-size: 12px;
+  margin-bottom: 10px;
+  text-align: center;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 8px;
+  border: 1px solid #fee2e2;
+}
+
+/* ─── Upload zone ─────────────────────────────────────────────────────────── */
+.upload-container {
+  width: 100%;
+}
+
+/* ─── Animación spin ──────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

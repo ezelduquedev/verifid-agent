@@ -58,9 +58,14 @@ function App() {
 
       {/* Topbar */}
       {currentStep > 0 && (
-        <header style={{ width: '100%', background: 'var(--text-h)', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '48px', position: 'sticky', top: 0, zIndex: 100 }}>
-          <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#fff' }}>VerifID Agent</p>
-          {user && <button onClick={handleLogout} style={{ width: 'auto', padding: '4px 10px', fontSize: '11px', background: 'rgba(255,255,255,0.1)' }}>Salir</button>}
+        <header style={{ width: '100%', background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)', padding: '0 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '52px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(29,78,216,0.3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M6 16h12"/></svg>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px' }}>VerifID Agent</p>
+          </div>
+          {user && <button onClick={handleLogout} style={{ width: 'auto', padding: '5px 12px', fontSize: '11px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', boxShadow: 'none' }}>Salir</button>}
         </header>
       )}
 
@@ -68,24 +73,20 @@ function App() {
       {currentStep > 0 && (
         <div style={{ width: '100%', background: '#f4f3ec', borderBottom: '1px solid var(--border)', padding: '8px 1rem' }}>
           <div style={{ maxWidth: '500px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {steps.slice(1).map((label, i) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: progressStep > i + 1 ? 'var(--success)' : progressStep === i + 1 ? 'var(--accent)' : 'var(--border)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {progressStep > i + 1 ? '✓' : i + 1}
-                </div>
-                <span style={{ fontSize: '11px', color: progressStep === i + 1 ? 'var(--text-h)' : 'var(--text)' }}>{label}</span>
-              </div>
-            ))}
+            {steps.slice(1).map((label, i) => { const done = progressStep > i + 1; const active = progressStep === i + 1; return ( <div key={label} style={{ display: "flex", alignItems: "center", gap: "6px" }}> <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: done ? "var(--success)" : active ? "var(--accent)" : "#e2e8f0", color: "#fff", fontSize: "10px", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: active ? "0 0 0 3px rgba(29,78,216,0.15)" : "none" }}> {done ? "✓" : i + 1} </div> <span style={{ fontSize: "11px", fontWeight: active ? 700 : 500, color: done ? "#15803d" : active ? "var(--accent)" : "#64748b" }}>{label}</span> </div> ); })}
           </div>
         </div>
       )}
 
-      <main style={{ flex: 1, width: '100%', maxWidth: currentStep === 0 ? '420px' : '560px', margin: '0 auto', display: 'flex', flexDirection: 'column', justifyContent: currentStep === 0 ? 'center' : 'flex-start', padding: '20px', boxSizing: 'border-box' }}>
+      {currentStep === 0 ? (
+        <div className="login-bg">
+          <div style={{ width: '100%', maxWidth: '420px' }}>
+            <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
+          </div>
+        </div>
+      ) : null}
 
-        {/* Paso 0: Login/Registro */}
-        {currentStep === 0 && (
-          <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
-        )}
+      <main style={{ flex: 1, width: '100%', maxWidth: '560px', margin: '0 auto', display: currentStep === 0 ? 'none' : 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '20px', boxSizing: 'border-box' }}>
 
         {/* Paso 1: Datos personales */}
         {currentStep === 1 && (
