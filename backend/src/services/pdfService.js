@@ -10,18 +10,11 @@ async function generatePDF(verif, userData) {
       info: { Title: `Informe VerifID - ${verif.id}` }
     });
 
-    const chunks = [];
-    doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', (err) => reject(err));
-
-    // Mapear el tipo de documento a etiqueta legible
     const DOC_TYPE_LABELS = {
       DNI:       'DNI (Documento Nacional de Identidad)',
       NIE:       'NIE (Número de Identidad de Extranjero)',
       PASAPORTE: 'Pasaporte',
       CEDULA:    'Cédula de Identidad',
-      // también aceptar los valores del formulario directamente
       Pasaporte: 'Pasaporte',
       Cédula:    'Cédula de Identidad',
     };
@@ -100,7 +93,7 @@ async function generatePDF(verif, userData) {
     doc.fillColor('#333').fontSize(10)
       .text(verif.riskAssessment?.aiReport || 'Sin informe narrativo disponible.', { align: 'justify' });
 
-    // ─── PIE DE PÁGINA — pegado al contenido, sin salto de página ─────────
+    // ─── PIE DE PÁGINA ────────────────────────────────────────────────────
     doc.moveDown(2);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke('#bdc3c7');
     doc.moveDown(0.3);
@@ -108,7 +101,6 @@ async function generatePDF(verif, userData) {
       .text('Este documento ha sido generado automáticamente y contiene datos sensibles sujetos al RGPD.', { align: 'center' });
     doc.text(`Fecha del informe: ${new Date().toLocaleString()} | ID: ${verif.id.slice(0, 8)}`, { align: 'center' });
 
-    // Eliminar páginas en blanco extra antes de cerrar
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
