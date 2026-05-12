@@ -83,7 +83,7 @@ const StepDatos = ({ onStepComplete }) => {
             </Field>
           </div>
 
-          <Field label="Número de Documento (DNI / NIE / Pasaporte)">
+          <Field label="Número de Documento (DNI / NIE / Pasaporte / Cédula)">
             <Input name="documentNumber" placeholder="13267890D" onChange={handleChange} required />
           </Field>
 

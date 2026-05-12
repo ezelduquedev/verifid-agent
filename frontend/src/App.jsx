@@ -18,76 +18,45 @@ function useDarkMode() {
   return [dark, () => setDark(d => !d)]
 }
 
-// ── Navbar ────────────────────────────────────────────────
-function Navbar({ user, onLogout, dark, onToggleDark }) {
-  return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: 'linear-gradient(135deg, var(--header-from) 0%, var(--header-to) 100%)',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 16px', height: '52px', gap: '8px',
-    }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', fontWeight: 800, fontSize: '15px', letterSpacing: '-.3px', flexShrink: 0 }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/>
-          <path d="M15 8h2M15 12h2M6 16h12"/>
-        </svg>
-        VerifID Agent
-      </div>
-
-      {/* Right controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {user && (
-          <button
-            onClick={onLogout}
-            style={{ width: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 600, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', boxShadow: 'none', color: '#fff' }}
-          >
-            Salir
-          </button>
-        )}
-        <button
-          onClick={onToggleDark}
-          style={{ width: 'auto', padding: '6px 10px', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '16px', lineHeight: 1, cursor: 'pointer', boxShadow: 'none' }}
-        >
-          {dark ? '☀️' : '🌙'}
-        </button>
-      </div>
-    </nav>
-  )
-}
-
-// ── Progress bar — SOLO VISUAL, sin interacción ───────────
+// ── Progress bar — estilo original ────────────────────────
 function ProgressStrip({ currentStep, finalResult }) {
   const steps = ['Datos', 'Documento', 'Análisis', 'Resultado']
-  const active = finalResult ? 4 : currentStep // 1-based steps
-  const statuses = steps.map((_, i) => {
-    const idx = i + 1
-    if (active > idx) return 'done'
-    if (active === idx) return 'ac'
-    return 'in'
-  })
+  const active = finalResult ? 4 : currentStep // 1-based
 
   return (
     <div style={{
-      position: 'fixed', top: '52px', left: 0, right: 0, zIndex: 99,
-      background: 'var(--surface-1)', borderBottom: '1px solid var(--border)',
-      padding: '10px 16px',
-      // El strip completo no responde a clics
-      pointerEvents: 'none', userSelect: 'none',
+      width: '100%',
+      background: '#f4f3ec',
+      borderBottom: '1px solid var(--border)',
+      padding: '8px 1rem',
     }}>
-      <div className="progress" style={{ maxWidth: '500px', margin: '0 auto', marginBottom: 0 }}>
-        {steps.map((label, i) => (
-          <div
-            key={label}
-            className={`si ${statuses[i]}`}
-            // Sin cursor ni interacción — es indicador visual puro
-            style={{ cursor: 'default' }}
-          >
-            <div className="sc">{statuses[i] === 'done' ? '✓' : i + 1}</div>
-            <span className="sl">{label}</span>
-          </div>
-        ))}
+      <div style={{ maxWidth: '500px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {steps.map((label, i) => {
+          const idx = i + 1
+          const done   = active > idx
+          const isActive = active === idx
+          return (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{
+                width: '22px', height: '22px', borderRadius: '50%',
+                background: done ? 'var(--success)' : isActive ? 'var(--accent)' : '#e2e8f0',
+                color: '#fff', fontSize: '10px', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: isActive ? '0 0 0 3px rgba(29,78,216,0.15)' : 'none',
+                flexShrink: 0,
+              }}>
+                {done ? '✓' : idx}
+              </div>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: isActive ? 700 : 500,
+                color: done ? '#15803d' : isActive ? 'var(--accent)' : '#64748b',
+              }}>
+                {label}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -167,64 +136,102 @@ function App() {
 
   const handleLogout = () => { localStorage.clear(); window.location.reload() }
 
-  const showStrip = currentStep > 0
-  const contentTop = showStrip ? '52px' : '0'       // navbar
-  const contentPad = showStrip ? '52px' : '0'        // progress strip
+  const showNav = currentStep > 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--surface-2)' }}>
-      <Navbar user={user} onLogout={handleLogout} dark={dark} onToggleDark={toggleDark} />
+    <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
 
-      {showStrip && <ProgressStrip currentStep={currentStep} finalResult={finalResult} />}
-
-      <div style={{ paddingTop: showStrip ? '104px' : '52px' }}>
-
-        {/* Step 0: Login */}
-        {currentStep === 0 && (
-          <div className="login-bg" style={{ paddingTop: '68px', minHeight: 'calc(100vh - 52px)' }}>
-            <div style={{ width: '100%', maxWidth: '400px' }}>
-              <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
+      {/* ── Topbar — mismo alto y estilo que el diseño original ── */}
+      {showNav && (
+        <header style={{
+          width: '100%',
+          background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+          padding: '0 1.5rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          height: '52px',
+          position: 'sticky', top: 0, zIndex: 100,
+          boxShadow: '0 2px 12px rgba(29,78,216,0.3)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <circle cx="9" cy="10" r="2"/>
+                <path d="M15 8h2M15 12h2M6 16h12"/>
+              </svg>
             </div>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#fff', letterSpacing: '0.3px' }}>
+              VerifID Agent
+            </p>
           </div>
-        )}
 
-        {/* Step 1: Personal data */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {user && (
+              <button
+                onClick={handleLogout}
+                style={{ width: 'auto', padding: '5px 12px', fontSize: '11px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', boxShadow: 'none', color: '#fff' }}
+              >
+                Salir
+              </button>
+            )}
+            <button
+              onClick={toggleDark}
+              style={{ width: 'auto', padding: '6px 10px', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '16px', lineHeight: 1, cursor: 'pointer', boxShadow: 'none' }}
+            >
+              {dark ? '☀️' : '🌙'}
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* ── Barra de progreso — estilo original ── */}
+      {showNav && (
+        <ProgressStrip currentStep={currentStep} finalResult={finalResult} />
+      )}
+
+      {/* ── Contenido ── */}
+      {currentStep === 0 ? (
+        <div className="login-bg">
+          <div style={{ width: '100%', maxWidth: '420px' }}>
+            <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
+          </div>
+        </div>
+      ) : null}
+
+      <main style={{
+        flex: 1, width: '100%', maxWidth: '560px', margin: '0 auto',
+        display: currentStep === 0 ? 'none' : 'flex',
+        flexDirection: 'column', justifyContent: 'flex-start',
+        padding: '20px', boxSizing: 'border-box',
+      }}>
+
+        {/* Paso 1: Datos personales */}
         {currentStep === 1 && (
-          <div className="step-layout" style={{ minHeight: 'calc(100vh - 104px)' }}>
-            <div className="step-con">
-              <StepDatos onStepComplete={(id) => { setVerificationId(id); setCurrentStep(2) }} />
-            </div>
-          </div>
+          <StepDatos onStepComplete={(id) => { setVerificationId(id); setCurrentStep(2) }} />
         )}
 
-        {/* Step 2: Document upload */}
+        {/* Paso 2: Subida de documento */}
         {currentStep === 2 && (
-          <div className="step-layout" style={{ minHeight: 'calc(100vh - 104px)' }}>
-            <div className="step-con">
-              <div className="card">
-                <UploadZone verificationId={verificationId} onUploadSuccess={() => setCurrentStep(3)} />
-              </div>
-            </div>
+          <div className="card">
+            <h2 style={{ color: 'var(--text-h)', margin: '0 0 8px', fontSize: '16px' }}>Paso 2: Documento</h2>
+            <UploadZone
+              verificationId={verificationId}
+              onUploadSuccess={() => setCurrentStep(3)}
+            />
           </div>
         )}
 
-        {/* Step 3: Analyzing */}
+        {/* Paso 3: Análisis en curso */}
         {currentStep === 3 && !finalResult && (
-          <div style={{ minHeight: 'calc(100vh - 104px)' }}>
-            <AnalyzingScreen pollingStatus={pollingStatus} />
-          </div>
+          <AnalyzingScreen pollingStatus={pollingStatus} />
         )}
 
-        {/* Step 4: Result */}
+        {/* Paso 4: Resultado final */}
         {finalResult && (
-          <div className="step-layout" style={{ minHeight: 'calc(100vh - 104px)' }}>
-            <div className="step-con">
-              <StepResultado result={finalResult} onFinish={handleLogout} />
-            </div>
-          </div>
+          <StepResultado result={finalResult} onFinish={handleLogout} />
         )}
 
-      </div>
+      </main>
     </div>
   )
 }
