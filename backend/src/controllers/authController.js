@@ -1,10 +1,15 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const jwt    = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 
+// ── Utilidad: normaliza siempre el email antes de usarlo ─────────────────────
+const normalizeEmail = (email = '') => email.toLowerCase().trim();
+
+// ── Registro ──────────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { email, password, gdpr_consent } = req.body;
+    const { email: rawEmail, password, gdpr_consent } = req.body;
+    const email = normalizeEmail(rawEmail);
 
     if (!gdpr_consent) {
       return res.status(400).json({ error: 'Debes aceptar el consentimiento GDPR para continuar.' });
@@ -22,8 +27,8 @@ const register = async (req, res) => {
         email,
         passwordHash: hashedPassword,
         gdprConsentAt: new Date(),
-        role: 'USER'
-      }
+        role: 'USER',
+      },
     });
 
     const token = jwt.sign(
@@ -34,23 +39,29 @@ const register = async (req, res) => {
 
     res.status(201).json({
       token,
-      user: { id: user.id, email: user.email, role: user.role }
+      user: { id: user.id, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error('Error en registro:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor.' });
   }
 };
 
+// ── Login ─────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body;
+    const email = normalizeEmail(rawEmail);
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales inválidas.' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(401).json({ error: 'Credenciales inválidas' });
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Credenciales inválidas.' });
+    }
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
@@ -58,17 +69,21 @@ const login = async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    res.json({
+      token,
+      user: { id: user.id, email: user.email, role: user.role },
+    });
   } catch (error) {
     console.error('Error en login:', error);
-    res.status(500).json({ error: 'Error en el inicio de sesión' });
+    res.status(500).json({ error: 'Error en el inicio de sesión.' });
   }
 };
 
 // ── Restablecer contraseña ────────────────────────────────────────────────────
 const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { email: rawEmail, newPassword } = req.body;
+    const email = normalizeEmail(rawEmail);
 
     if (!email || !newPassword) {
       return res.status(400).json({ error: 'Email y nueva contraseña son obligatorios.' });
@@ -85,9 +100,10 @@ const resetPassword = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
+
     await prisma.user.update({
       where: { email },
-      data: { passwordHash: hashedPassword }
+      data: { passwordHash: hashedPassword },
     });
 
     res.json({ message: 'Contraseña actualizada correctamente.' });

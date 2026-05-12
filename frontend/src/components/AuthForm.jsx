@@ -18,7 +18,6 @@ const NeuralBackground = () => {
     resize()
     window.addEventListener('resize', resize)
 
-    // Nodes
     const N = 60
     const nodes = Array.from({ length: N }, () => ({
       x:  Math.random() * canvas.width,
@@ -31,14 +30,12 @@ const NeuralBackground = () => {
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // Move
       for (const n of nodes) {
         n.x += n.vx; n.y += n.vy
         if (n.x < 0 || n.x > canvas.width)  n.vx *= -1
         if (n.y < 0 || n.y > canvas.height) n.vy *= -1
       }
 
-      // Edges
       for (let i = 0; i < N; i++) {
         for (let j = i + 1; j < N; j++) {
           const dx = nodes[i].x - nodes[j].x
@@ -56,7 +53,6 @@ const NeuralBackground = () => {
         }
       }
 
-      // Nodes
       for (const n of nodes) {
         ctx.beginPath()
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
@@ -90,7 +86,13 @@ const NeuralBackground = () => {
 
 // ── Logo ──────────────────────────────────────────────────
 const LogoMark = () => (
-  <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: '0 4px 12px rgba(29,78,216,0.3)' }}>
+  <div style={{
+    width: '44px', height: '44px',
+    background: 'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)',
+    borderRadius: '12px', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', margin: '0 auto 12px',
+    boxShadow: '0 4px 12px rgba(29,78,216,0.3)',
+  }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/>
       <path d="M15 8h2M15 12h2M6 16h12"/>
@@ -114,7 +116,10 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, icon, right
     <label>{label}</label>
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
       {icon && (
-        <span style={{ position: 'absolute', left: '12px', color: '#64748b', display: 'flex', zIndex: 2, pointerEvents: 'none' }}>
+        <span style={{
+          position: 'absolute', left: '12px', color: '#64748b',
+          display: 'flex', zIndex: 2, pointerEvents: 'none',
+        }}>
           {icon}
         </span>
       )}
@@ -131,6 +136,30 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, icon, right
   </div>
 )
 
+// ── Eye toggle (reutilizable) ─────────────────────────────
+const EyeToggle = ({ show, onToggle }) => (
+  <span
+    onClick={onToggle}
+    style={{
+      display: 'flex', alignItems: 'center', cursor: 'pointer',
+      color: '#94a3b8', transition: 'color 0.15s',
+    }}
+    onMouseEnter={e => e.currentTarget.style.color = '#475569'}
+    onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+  >
+    {show
+      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+    }
+  </span>
+)
+
 // ── Forgot Password ───────────────────────────────────────
 const ForgotPassword = ({ onBack }) => {
   const [email, setEmail]             = useState('')
@@ -140,38 +169,31 @@ const ForgotPassword = ({ onBack }) => {
   const [success, setSuccess]         = useState(false)
   const [error, setError]             = useState('')
 
-  const EyeToggle = ({ show, onToggle }) => (
-    <span
-      onClick={onToggle}
-      style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#94a3b8', transition: 'color 0.15s' }}
-      onMouseEnter={e => e.currentTarget.style.color = '#475569'}
-      onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-    >
-      {show
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      }
-    </span>
-  )
-
   const handleReset = async () => {
     if (!email || !newPassword) { setError('Rellena los dos campos.'); return }
     if (newPassword.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return }
     setLoading(true); setError('')
     try {
-      await authService.resetPassword(email, newPassword)
+      // FIX: normalizar email antes de enviarlo
+      await authService.resetPassword(email.toLowerCase().trim(), newPassword)
       setSuccess(true)
     } catch (err) {
       setError(err.response?.data?.error || 'No se pudo restablecer la contraseña.')
     } finally { setLoading(false) }
   }
 
+  // FIX: botón centrado con display block + margin auto
   if (success) return (
     <div className="tc" style={{ padding: '20px 0' }}>
       <div style={{ fontSize: '36px', marginBottom: '12px' }}>✅</div>
       <div className="t-h mb8">Contraseña actualizada</div>
       <p className="t-sm mb16">Ya puedes iniciar sesión con tu nueva contraseña.</p>
-      <button onClick={onBack} style={{ width: 'auto', padding: '10px 24px' }}>Volver al inicio de sesión</button>
+      <button
+        onClick={onBack}
+        style={{ display: 'block', margin: '0 auto', width: 'auto', padding: '10px 28px' }}
+      >
+        Volver al inicio de sesión
+      </button>
     </div>
   )
 
@@ -183,18 +205,27 @@ const ForgotPassword = ({ onBack }) => {
         <p className="t-s">Introduce tu email y una nueva contraseña.</p>
       </div>
       <div className="card-login mb12" style={{ padding: '16px' }}>
-        <Field label="Email registrado" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
+        <Field
+          label="Email registrado" type="email" value={email}
+          onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
         />
-        <Field label="Nueva contraseña" type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres"
+        <Field
+          label="Nueva contraseña" type={showNewPwd ? 'text' : 'password'}
+          value={newPassword} onChange={e => setNewPassword(e.target.value)}
+          placeholder="Mínimo 6 caracteres"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
           rightSlot={<EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd(!showNewPwd)} />}
         />
       </div>
       {error && <div className="error-msg">{error}</div>}
-      <button onClick={handleReset} disabled={loading}>{loading ? 'Actualizando...' : 'Cambiar contraseña'}</button>
+      <button onClick={handleReset} disabled={loading}>
+        {loading ? 'Actualizando...' : 'Cambiar contraseña'}
+      </button>
       <p className="tc mt12 t-sm">
-        <span onClick={onBack} style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>← Volver al inicio de sesión</span>
+        <span onClick={onBack} style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>
+          ← Volver al inicio de sesión
+        </span>
       </p>
     </div>
   )
@@ -202,7 +233,10 @@ const ForgotPassword = ({ onBack }) => {
 
 // ── Auth tabs ─────────────────────────────────────────────
 const AuthTabs = ({ isLogin, onSwitch }) => (
-  <div style={{ display: 'flex', background: 'rgba(241,245,249,0.85)', padding: '3px', borderRadius: '10px', marginBottom: '16px' }}>
+  <div style={{
+    display: 'flex', background: 'rgba(241,245,249,0.85)',
+    padding: '3px', borderRadius: '10px', marginBottom: '16px',
+  }}>
     {[{ label: 'Crear cuenta', val: false }, { label: 'Iniciar sesión', val: true }].map(({ label, val }) => (
       <button
         key={label} type="button" onClick={() => onSwitch(val)}
@@ -224,49 +258,34 @@ const AuthTabs = ({ isLogin, onSwitch }) => (
 // ── Login wrapper with neural background ──────────────────
 export const LoginBackground = ({ children }) => (
   <div style={{
-    position: 'relative',
-    minHeight: '100vh',
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'relative', minHeight: '100vh', width: '100%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
     background: 'linear-gradient(135deg, #c7d8f0 0%, #dce8f7 25%, #e8f0fb 45%, #d4dcf0 65%, #cdd6ef 80%, #bcc9e8 100%)',
   }}>
-    {/* Soft blobs */}
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
       <div style={{
-        position: 'absolute', top: '-10%', left: '-5%',
-        width: '55%', height: '60%',
+        position: 'absolute', top: '-10%', left: '-5%', width: '55%', height: '60%',
         background: 'radial-gradient(ellipse at center, rgba(147,197,253,0.55) 0%, transparent 70%)',
         borderRadius: '50%', filter: 'blur(32px)',
       }} />
       <div style={{
-        position: 'absolute', bottom: '-10%', right: '-5%',
-        width: '50%', height: '55%',
+        position: 'absolute', bottom: '-10%', right: '-5%', width: '50%', height: '55%',
         background: 'radial-gradient(ellipse at center, rgba(196,181,253,0.4) 0%, transparent 70%)',
         borderRadius: '50%', filter: 'blur(40px)',
       }} />
       <div style={{
-        position: 'absolute', top: '40%', right: '10%',
-        width: '30%', height: '35%',
+        position: 'absolute', top: '40%', right: '10%', width: '30%', height: '35%',
         background: 'radial-gradient(ellipse at center, rgba(165,214,254,0.45) 0%, transparent 70%)',
         borderRadius: '50%', filter: 'blur(28px)',
       }} />
-      {/* White swoosh */}
       <div style={{
-        position: 'absolute', top: '15%', left: '10%',
-        width: '80%', height: '60%',
+        position: 'absolute', top: '15%', left: '10%', width: '80%', height: '60%',
         background: 'radial-gradient(ellipse 70% 40% at 50% 50%, rgba(255,255,255,0.45) 0%, transparent 100%)',
-        filter: 'blur(20px)',
-        transform: 'rotate(-12deg)',
+        filter: 'blur(20px)', transform: 'rotate(-12deg)',
       }} />
     </div>
-
-    {/* Animated neural network */}
     <NeuralBackground />
-
-    {/* Form card */}
     <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px', padding: '24px' }}>
       {children}
     </div>
@@ -296,31 +315,18 @@ const AuthForm = ({ onAuthSuccess }) => {
     if (!isLogin && !consent) { setError('Debes aceptar el tratamiento de datos.'); return }
     setError(''); setLoading(true)
     try {
+      // FIX: normalizar email antes de enviarlo al backend
+      const normalizedEmail = email.toLowerCase().trim()
       const response = isLogin
-        ? await authService.login(email, password)
-        : await authService.register(email, password, true)
+        ? await authService.login(normalizedEmail, password)
+        : await authService.register(normalizedEmail, password, true)
       localStorage.setItem('verifid_token', response.data.token)
-      localStorage.setItem('verifid_email', email)
-      onAuthSuccess(response.data.user || { email })
+      localStorage.setItem('verifid_email', normalizedEmail)
+      onAuthSuccess(response.data.user || { email: normalizedEmail })
     } catch (err) {
-      setError(err.response?.data?.error || 'Error en la autenticación')
+      setError(err.response?.data?.error || 'Error en la autenticación.')
     } finally { setLoading(false) }
   }
-
-  const EyeToggle = ({ show, onToggle }) => (
-    <span
-      onClick={onToggle}
-      style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#94a3b8', transition: 'color 0.15s' }}
-      onMouseEnter={e => e.currentTarget.style.color = '#475569'}
-      onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-    >
-      {show
-        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      }
-    </span>
-  )
-  const eyeIcon = <EyeToggle show={showPwd} onToggle={() => setShowPwd(!showPwd)} />
 
   return (
     <LoginBackground>
@@ -329,7 +335,7 @@ const AuthForm = ({ onAuthSuccess }) => {
         <div className="t-h">VerifID Agent</div>
       </div>
 
-      <AuthTabs isLogin={isLogin} onSwitch={setIsLogin} />
+      <AuthTabs isLogin={isLogin} onSwitch={val => { setIsLogin(val); setError('') }} />
 
       <div className="card-login mb12">
         <Field
@@ -341,11 +347,14 @@ const AuthForm = ({ onAuthSuccess }) => {
           label="Contraseña" type={showPwd ? 'text' : 'password'} value={password}
           onChange={e => setPassword(e.target.value)} placeholder="••••••••"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
-          rightSlot={eyeIcon}
+          rightSlot={<EyeToggle show={showPwd} onToggle={() => setShowPwd(!showPwd)} />}
         />
         {isLogin && (
           <div style={{ textAlign: 'right', marginTop: '-8px' }}>
-            <span onClick={() => setIsForgot(true)} style={{ fontSize: '11px', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>
+            <span
+              onClick={() => { setIsForgot(true); setError('') }}
+              style={{ fontSize: '11px', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}
+            >
               ¿Olvidaste tu contraseña?
             </span>
           </div>
@@ -355,7 +364,10 @@ const AuthForm = ({ onAuthSuccess }) => {
       {!isLogin && <GdprBox />}
       {!isLogin && (
         <label style={{ display: 'flex', gap: '8px', marginBottom: '16px', cursor: 'pointer', alignItems: 'center' }}>
-          <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} style={{ width: '14px', height: '14px', accentColor: 'var(--accent)' }} />
+          <input
+            type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
+            style={{ width: '14px', height: '14px', accentColor: 'var(--accent)' }}
+          />
           <span style={{ fontSize: '11px', color: 'var(--text)' }}>Acepto el tratamiento de datos.</span>
         </label>
       )}
@@ -368,7 +380,10 @@ const AuthForm = ({ onAuthSuccess }) => {
 
       <p className="tc mt12 t-sm">
         {isLogin ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
-        <span onClick={() => setIsLogin(!isLogin)} style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>
+        <span
+          onClick={() => { setIsLogin(!isLogin); setError('') }}
+          style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}
+        >
           {isLogin ? 'Regístrate' : 'Entra'}
         </span>
       </p>
