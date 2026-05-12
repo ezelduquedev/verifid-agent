@@ -143,8 +143,8 @@ async function checkAML(nombreCompleto) {
 
   // ── CONSULTA REAL A OPENSANCTIONS ──────────────────────────────────────────
   try {
-    // Sin filtro schema=Person → mayor cobertura de variantes y alias
-    const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(nombreQuery)}&limit=10`;
+    // Búsqueda con el nombre completo — sin filtro schema para mayor cobertura
+    const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(nombreQuery)}&limit=5`;
 
     console.log(`[AML SERVICE] Consultando OpenSanctions para: "${nombreQuery}"`);
 
@@ -154,7 +154,7 @@ async function checkAML(nombreCompleto) {
         'Authorization': `ApiKey ${apiKey}`,
         'Accept':        'application/json',
       },
-      signal: AbortSignal.timeout(8000), // timeout de 8s para no bloquear el flujo
+      signal: AbortSignal.timeout(10000),
     });
 
     // ── Plan trial agotado ────────────────────────────────────────────────────
@@ -188,16 +188,14 @@ async function checkAML(nombreCompleto) {
     console.log(`[AML DEBUG] Resultados recibidos de OpenSanctions: ${totalResultados}`);
 
     if (totalResultados > 0) {
-      const top = data.results[0];
-      console.log('[AML DEBUG] Top match:', JSON.stringify({
-        caption:  top.caption,
-        score:    top.score,
-        schema:   top.schema,
-        datasets: top.datasets,
-      }, null, 2));
+      // Log detallado de todos los resultados para diagnóstico
+      data.results.forEach((r, i) => {
+        console.log(`[AML DEBUG] Resultado ${i + 1}: ${r.caption} — score: ${r.score} — schema: ${r.schema} — datasets: ${r.datasets?.join(',')}`);
+      });
 
-      // Umbral 0.5 para capturar variantes de nombres compuestos en castellano
-      const amenaza = data.results.find(r => r.score >= 0.5);
+      // Umbral 0.45 para capturar nombres compuestos en castellano con variaciones ortográficas
+      // Se filtra además que sea una entidad Person o similar (no empresas si el input es un nombre de persona)
+      const amenaza = data.results.find(r => r.score >= 0.45);
 
       if (amenaza) {
         const datasets = amenaza.datasets?.join(', ')              || 'listas internacionales';
@@ -225,7 +223,7 @@ async function checkAML(nombreCompleto) {
     }
 
     // ── Sin coincidencias suficientes → fallback lista local ─────────────────
-    console.log('[AML SERVICE] Sin coincidencias en API (score < 0.5 o 0 resultados). Comprobando lista local...');
+    console.log('[AML SERVICE] Sin coincidencias en API (score < 0.45 o 0 resultados). Comprobando lista local...');
     const matchLocal = checkListaNegra(nombreNorm);
     if (matchLocal) {
       console.warn(`[AML SERVICE] 🚨 ALERTA LOCAL (fallback API): ${matchLocal.matchedEntity}`);

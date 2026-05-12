@@ -15,6 +15,23 @@ async function generatePDF(verif, userData) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', (err) => reject(err));
 
+    // Mapear el tipo de documento a etiqueta legible
+    const DOC_TYPE_LABELS = {
+      DNI:       'DNI (Documento Nacional de Identidad)',
+      NIE:       'NIE (Número de Identidad de Extranjero)',
+      PASAPORTE: 'Pasaporte',
+      CEDULA:    'Cédula de Identidad',
+      // también aceptar los valores del formulario directamente
+      Pasaporte: 'Pasaporte',
+      Cédula:    'Cédula de Identidad',
+    };
+    const docTypeLabel = DOC_TYPE_LABELS[userData.docType] || userData.docType || 'DNI';
+
+    const chunks = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', (err) => reject(err));
+
     const isApproved = verif.status === 'APPROVED';
     const isAmlAlert = verif.riskAssessment?.amlAlert === true ||
       (verif.riskAssessment?.amlCheck || '').toUpperCase().includes('ALERTA AML');
@@ -54,7 +71,7 @@ async function generatePDF(verif, userData) {
     doc.fillColor('#000').fontSize(11);
     doc.text('Nombre: ', { continued: true }).font('Helvetica-Bold').text(`${userData.nombre} ${userData.apellido}`).font('Helvetica');
     doc.text(`Email: ${userData.email || 'N/A'}`);
-    doc.text(`Documento: ${userData.docType} (${userData.ndoc})`);
+    doc.text(`Documento: ${docTypeLabel} — Nº ${userData.ndoc}`);
     doc.text(`Nacionalidad: ${userData.nac}`);
     doc.moveDown();
 

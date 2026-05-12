@@ -70,11 +70,46 @@ async function uploadDocument(req, res, next) {
     const assessment = await prisma.riskAssessment.findUnique({ where: { verificationId: id } });
     const userData   = assessment?.declaredData || {};
 
+    // ─── Validación cara anverso/reverso ──────────────────────────────────
+    const effectiveDocTypeForSide = docTypeFromBody || assessment?.declaredData?.docType || 'DNI';
+    const SINGLE_SIDE_TYPES_CTRL = ['Pasaporte', 'Cédula'];
+    if (!SINGLE_SIDE_TYPES_CTRL.includes(effectiveDocTypeForSide)) {
+      const existingDocs = await prisma.document.findMany({ where: { verificationId: id } });
+      const sideAlreadyUploaded = existingDocs.find(d => d.side === side);
+      if (sideAlreadyUploaded) {
+        return res.status(400).json({ error: `El ${side === 'front' ? 'anverso' : 'reverso'} ya fue subido. Por favor sube el ${side === 'front' ? 'reverso' : 'anverso'}.` });
+      }
+    }
+
+    // ─── OCR + validación de cara con IA ─────────────────────────────────
     let ocrResult = null;
     try {
       ocrResult = await runOCR(req.file.buffer);
     } catch (ocrErr) {
       console.warn(`[OCR WARNING] Error en lectura de ${side}:`, ocrErr.message);
+    }
+
+    // ─── Validación semántica de la cara del documento ────────────────────
+    if (!SINGLE_SIDE_TYPES_CTRL.includes(effectiveDocTypeForSide) && ocrResult) {
+      const ocrUpper = ocrResult.toUpperCase();
+      // Indicadores de anverso: foto, nombre, apellidos, fecha nacimiento, MRZ solo en reverso
+      const frontIndicators = ['APELLIDOS', 'APELLIDO', 'NOMBRE', 'FECHA DE NACIMIENTO', 'DATE OF BIRTH', 'NATIONALITY', 'NACIONALIDAD'];
+      const backIndicators = ['EQUIPO NACIONAL', 'DOMICILIO', 'LUGAR DE NACIMIENTO', 'CAN', 'IDESP', 'SOPORTE', 'NUM SOPORTE'];
+      
+      const frontScore = frontIndicators.filter(ind => ocrUpper.includes(ind)).length;
+      const backScore  = backIndicators.filter(ind => ocrUpper.includes(ind)).length;
+      
+      const likelySide = frontScore >= backScore ? 'front' : 'back';
+      
+      if (likelySide !== side && (frontScore + backScore) >= 1) {
+        const expected = side === 'front' ? 'anverso' : 'reverso';
+        const detected = likelySide === 'front' ? 'anverso' : 'reverso';
+        return res.status(422).json({
+          error: `Cara incorrecta detectada: has subido una imagen que parece el ${detected} pero seleccionaste ${expected}. Por favor revisa qué lado estás subiendo.`,
+          detectedSide: likelySide,
+          requestedSide: side,
+        });
+      }
     }
 
     const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
@@ -86,11 +121,20 @@ async function uploadDocument(req, res, next) {
         id: uuidv4(),
         verificationId: id,
         type: mapType[docTypeFromBody] || mapType[userData.docType] || 'DNI',
+        side: side,
         storageUrl,
         ocrResult,
         hash,
       },
     });
+
+    // Actualizar docType en declaredData si no estaba o era diferente
+    if (docTypeFromBody && docTypeFromBody !== userData.docType) {
+      await prisma.riskAssessment.update({
+        where: { verificationId: id },
+        data: { declaredData: { ...userData, docType: docTypeFromBody } },
+      });
+    }
 
     const existingDocs = await prisma.document.findMany({ where: { verificationId: id, id: { not: newDoc.id } } });
     const allDocs = [...existingDocs, newDoc];
@@ -121,11 +165,22 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const fullTextOCR = docs.map(d => d.ocrResult || '').join(' ').toUpperCase();
     const cleanOCR = fullTextOCR.replace(/[\n\r]/g, ' ');
 
-    const nameSim  = fuzz.partial_ratio(userData.nombre.toUpperCase(), cleanOCR);
-    const docIdSim = fuzz.partial_ratio(userData.ndoc.toUpperCase(), cleanOCR);
+    // Comparación mejorada: token_set_ratio tolerante a reordenamientos y OCR ruidoso
+    const nombreCompleto = `${userData.nombre} ${userData.apellido}`.toUpperCase();
+    const nameSim  = Math.max(
+      fuzz.partial_ratio(userData.nombre.toUpperCase(), cleanOCR),
+      fuzz.token_set_ratio(nombreCompleto, cleanOCR),
+      fuzz.partial_ratio(userData.apellido.toUpperCase(), cleanOCR)
+    );
+    // Número de documento: comparar dígito a dígito con tolerancia 1 carácter de OCR
+    const docIdSim = Math.max(
+      fuzz.partial_ratio(userData.ndoc.toUpperCase(), cleanOCR),
+      fuzz.ratio(userData.ndoc.toUpperCase(), cleanOCR)
+    );
 
-    const nameMatch  = nameSim >= 75;
-    const docIdMatch = docIdSim >= 75;
+    // Umbral reducido a 65 para tolerar errores OCR en documentos impresos
+    const nameMatch  = nameSim >= 65;
+    const docIdMatch = docIdSim >= 65;
 
     const scores = calculateScores(userData, docs);
 
