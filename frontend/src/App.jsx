@@ -191,11 +191,7 @@ function App() {
 
       {/* ── Contenido ── */}
       {currentStep === 0 ? (
-        <div className="login-bg">
-          <div style={{ width: '100%', maxWidth: '420px' }}>
-            <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
-          </div>
-        </div>
+        <AuthForm onAuthSuccess={(userData) => { setUser(userData); setCurrentStep(1) }} />
       ) : null}
 
       <main style={{

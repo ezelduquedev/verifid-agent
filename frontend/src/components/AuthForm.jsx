@@ -1,6 +1,94 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { authService } from '../services/api'
 
+// ── Animated background canvas ────────────────────────────
+const NeuralBackground = () => {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    let animId
+
+    const resize = () => {
+      canvas.width  = canvas.offsetWidth
+      canvas.height = canvas.offsetHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    // Nodes
+    const N = 60
+    const nodes = Array.from({ length: N }, () => ({
+      x:  Math.random() * canvas.width,
+      y:  Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r:  Math.random() * 2.5 + 1,
+    }))
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // Move
+      for (const n of nodes) {
+        n.x += n.vx; n.y += n.vy
+        if (n.x < 0 || n.x > canvas.width)  n.vx *= -1
+        if (n.y < 0 || n.y > canvas.height) n.vy *= -1
+      }
+
+      // Edges
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const dx = nodes[i].x - nodes[j].x
+          const dy = nodes[i].y - nodes[j].y
+          const d  = Math.sqrt(dx * dx + dy * dy)
+          if (d < 140) {
+            const alpha = (1 - d / 140) * 0.35
+            ctx.beginPath()
+            ctx.strokeStyle = `rgba(147,197,253,${alpha})`
+            ctx.lineWidth = 0.8
+            ctx.moveTo(nodes[i].x, nodes[i].y)
+            ctx.lineTo(nodes[j].x, nodes[j].y)
+            ctx.stroke()
+          }
+        }
+      }
+
+      // Nodes
+      for (const n of nodes) {
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(191,219,254,0.7)'
+        ctx.shadowColor = 'rgba(96,165,250,0.8)'
+        ctx.shadowBlur = 6
+        ctx.fill()
+        ctx.shadowBlur = 0
+      }
+
+      animId = requestAnimationFrame(draw)
+    }
+    draw()
+
+    return () => {
+      cancelAnimationFrame(animId)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        pointerEvents: 'none',
+      }}
+    />
+  )
+}
+
+// ── Logo ──────────────────────────────────────────────────
 const LogoMark = () => (
   <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: '0 4px 12px rgba(29,78,216,0.3)' }}>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -45,11 +133,11 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, icon, right
 
 // ── Forgot Password ───────────────────────────────────────
 const ForgotPassword = ({ onBack }) => {
-  const [email, setEmail] = useState('')
+  const [email, setEmail]             = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [success, setSuccess]         = useState(false)
+  const [error, setError]             = useState('')
 
   const handleReset = async () => {
     if (!email || !newPassword) { setError('Rellena los dos campos.'); return }
@@ -98,13 +186,13 @@ const ForgotPassword = ({ onBack }) => {
 
 // ── Auth tabs ─────────────────────────────────────────────
 const AuthTabs = ({ isLogin, onSwitch }) => (
-  <div style={{ display: 'flex', background: 'var(--code-bg)', padding: '3px', borderRadius: '10px', marginBottom: '16px' }}>
+  <div style={{ display: 'flex', background: 'rgba(241,245,249,0.85)', padding: '3px', borderRadius: '10px', marginBottom: '16px' }}>
     {[{ label: 'Crear cuenta', val: false }, { label: 'Iniciar sesión', val: true }].map(({ label, val }) => (
       <button
         key={label} type="button" onClick={() => onSwitch(val)}
         style={{
           flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
-          background: isLogin === val ? 'var(--surface-1)' : 'transparent',
+          background: isLogin === val ? '#fff' : 'transparent',
           color: isLogin === val ? 'var(--accent)' : 'var(--text)',
           fontSize: '12px', fontWeight: 600, width: 'auto',
           boxShadow: isLogin === val ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
@@ -117,18 +205,86 @@ const AuthTabs = ({ isLogin, onSwitch }) => (
   </div>
 )
 
+// ── Login wrapper with neural background ──────────────────
+export const LoginBackground = ({ children }) => (
+  <div style={{
+    position: 'relative',
+    minHeight: '100vh',
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    background: 'linear-gradient(135deg, #c7d8f0 0%, #dce8f7 25%, #e8f0fb 45%, #d4dcf0 65%, #cdd6ef 80%, #bcc9e8 100%)',
+  }}>
+    {/* Soft blobs */}
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      <div style={{
+        position: 'absolute', top: '-10%', left: '-5%',
+        width: '55%', height: '60%',
+        background: 'radial-gradient(ellipse at center, rgba(147,197,253,0.55) 0%, transparent 70%)',
+        borderRadius: '50%', filter: 'blur(32px)',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '-10%', right: '-5%',
+        width: '50%', height: '55%',
+        background: 'radial-gradient(ellipse at center, rgba(196,181,253,0.4) 0%, transparent 70%)',
+        borderRadius: '50%', filter: 'blur(40px)',
+      }} />
+      <div style={{
+        position: 'absolute', top: '40%', right: '10%',
+        width: '30%', height: '35%',
+        background: 'radial-gradient(ellipse at center, rgba(165,214,254,0.45) 0%, transparent 70%)',
+        borderRadius: '50%', filter: 'blur(28px)',
+      }} />
+      {/* White swoosh */}
+      <div style={{
+        position: 'absolute', top: '15%', left: '10%',
+        width: '80%', height: '60%',
+        background: 'radial-gradient(ellipse 70% 40% at 50% 50%, rgba(255,255,255,0.45) 0%, transparent 100%)',
+        filter: 'blur(20px)',
+        transform: 'rotate(-12deg)',
+      }} />
+    </div>
+
+    {/* Animated neural network */}
+    <NeuralBackground />
+
+    {/* 4-pointed star decorations */}
+    <svg style={{ position: 'absolute', bottom: '8%', right: '5%', opacity: 0.5, pointerEvents: 'none' }}
+      width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <path d="M24 2 L26 22 L46 24 L26 26 L24 46 L22 26 L2 24 L22 22 Z" fill="white"/>
+    </svg>
+    <svg style={{ position: 'absolute', top: '12%', right: '18%', opacity: 0.3, pointerEvents: 'none' }}
+      width="24" height="24" viewBox="0 0 48 48" fill="none">
+      <path d="M24 2 L26 22 L46 24 L26 26 L24 46 L22 26 L2 24 L22 22 Z" fill="white"/>
+    </svg>
+
+    {/* Form card */}
+    <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px', padding: '24px' }}>
+      {children}
+    </div>
+  </div>
+)
+
 // ── Main AuthForm ─────────────────────────────────────────
 const AuthForm = ({ onAuthSuccess }) => {
-  const [isLogin, setIsLogin] = useState(false)
+  const [isLogin, setIsLogin]   = useState(false)
   const [isForgot, setIsForgot] = useState(false)
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [showPwd, setShowPwd] = useState(false)
-  const [consent, setConsent] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [showPwd, setShowPwd]   = useState(false)
+  const [consent, setConsent]   = useState(false)
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
 
-  if (isForgot) return <ForgotPassword onBack={() => { setIsForgot(false); setIsLogin(true) }} />
+  if (isForgot) return (
+    <LoginBackground>
+      <div className="card-login">
+        <ForgotPassword onBack={() => { setIsForgot(false); setIsLogin(true) }} />
+      </div>
+    </LoginBackground>
+  )
 
   const handleSubmit = async () => {
     if (!isLogin && !consent) { setError('Debes aceptar el tratamiento de datos.'); return }
@@ -152,7 +308,7 @@ const AuthForm = ({ onAuthSuccess }) => {
   )
 
   return (
-    <div style={{ width: '100%' }}>
+    <LoginBackground>
       <div className="tc mb12">
         <LogoMark />
         <div className="t-h">VerifID Agent</div>
@@ -161,10 +317,14 @@ const AuthForm = ({ onAuthSuccess }) => {
       <AuthTabs isLogin={isLogin} onSwitch={setIsLogin} />
 
       <div className="card-login mb12">
-        <Field label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
+        <Field
+          label="Email" type="email" value={email}
+          onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
         />
-        <Field label="Contraseña" type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+        <Field
+          label="Contraseña" type={showPwd ? 'text' : 'password'} value={password}
+          onChange={e => setPassword(e.target.value)} placeholder="••••••••"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
           rightSlot={eyeIcon}
         />
@@ -197,7 +357,7 @@ const AuthForm = ({ onAuthSuccess }) => {
           {isLogin ? 'Regístrate' : 'Entra'}
         </span>
       </p>
-    </div>
+    </LoginBackground>
   )
 }
 
