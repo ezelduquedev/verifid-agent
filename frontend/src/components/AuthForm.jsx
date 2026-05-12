@@ -135,9 +135,24 @@ const Field = ({ label, type = 'text', value, onChange, placeholder, icon, right
 const ForgotPassword = ({ onBack }) => {
   const [email, setEmail]             = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showNewPwd, setShowNewPwd]   = useState(false)
   const [loading, setLoading]         = useState(false)
   const [success, setSuccess]         = useState(false)
   const [error, setError]             = useState('')
+
+  const EyeToggle = ({ show, onToggle }) => (
+    <span
+      onClick={onToggle}
+      style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#94a3b8', transition: 'color 0.15s' }}
+      onMouseEnter={e => e.currentTarget.style.color = '#475569'}
+      onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+    >
+      {show
+        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      }
+    </span>
+  )
 
   const handleReset = async () => {
     if (!email || !newPassword) { setError('Rellena los dos campos.'); return }
@@ -171,8 +186,9 @@ const ForgotPassword = ({ onBack }) => {
         <Field label="Email registrado" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
         />
-        <Field label="Nueva contraseña" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres"
+        <Field label="Nueva contraseña" type={showNewPwd ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres"
           icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
+          rightSlot={<EyeToggle show={showNewPwd} onToggle={() => setShowNewPwd(!showNewPwd)} />}
         />
       </div>
       {error && <div className="error-msg">{error}</div>}
@@ -250,16 +266,6 @@ export const LoginBackground = ({ children }) => (
     {/* Animated neural network */}
     <NeuralBackground />
 
-    {/* 4-pointed star decorations */}
-    <svg style={{ position: 'absolute', bottom: '8%', right: '5%', opacity: 0.5, pointerEvents: 'none' }}
-      width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <path d="M24 2 L26 22 L46 24 L26 26 L24 46 L22 26 L2 24 L22 22 Z" fill="white"/>
-    </svg>
-    <svg style={{ position: 'absolute', top: '12%', right: '18%', opacity: 0.3, pointerEvents: 'none' }}
-      width="24" height="24" viewBox="0 0 48 48" fill="none">
-      <path d="M24 2 L26 22 L46 24 L26 26 L24 46 L22 26 L2 24 L22 22 Z" fill="white"/>
-    </svg>
-
     {/* Form card */}
     <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '420px', padding: '24px' }}>
       {children}
@@ -301,11 +307,20 @@ const AuthForm = ({ onAuthSuccess }) => {
     } finally { setLoading(false) }
   }
 
-  const eyeIcon = (
-    <span onClick={() => setShowPwd(!showPwd)} style={{ fontSize: '14px', userSelect: 'none' }}>
-      {showPwd ? '🙈' : '👁️'}
+  const EyeToggle = ({ show, onToggle }) => (
+    <span
+      onClick={onToggle}
+      style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#94a3b8', transition: 'color 0.15s' }}
+      onMouseEnter={e => e.currentTarget.style.color = '#475569'}
+      onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+    >
+      {show
+        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      }
     </span>
   )
+  const eyeIcon = <EyeToggle show={showPwd} onToggle={() => setShowPwd(!showPwd)} />
 
   return (
     <LoginBackground>
