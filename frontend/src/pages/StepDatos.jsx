@@ -76,7 +76,7 @@ const StepDatos = ({ onStepComplete }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Field label="Nombre">
-              <Input name="firstName" placeholder="María" onChange={handleChange} required />
+              <Input name="firstName" placeholder="Erick" onChange={handleChange} required />
             </Field>
             <Field label="Apellidos">
               <Input name="lastName" placeholder="García López" onChange={handleChange} required />
@@ -84,7 +84,7 @@ const StepDatos = ({ onStepComplete }) => {
           </div>
 
           <Field label="Número de Documento (DNI / NIE / Pasaporte)">
-            <Input name="documentNumber" placeholder="12345678X" onChange={handleChange} required />
+            <Input name="documentNumber" placeholder="13267890D" onChange={handleChange} required />
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -92,7 +92,7 @@ const StepDatos = ({ onStepComplete }) => {
               <Input name="birthDate" type="date" onChange={handleChange} required />
             </Field>
             <Field label="Nacionalidad">
-              <Input name="nationality" placeholder="Española" onChange={handleChange} required />
+              <Input name="nationality" placeholder="Tu país" onChange={handleChange} required />
             </Field>
           </div>
 
@@ -111,7 +111,7 @@ const StepDatos = ({ onStepComplete }) => {
           </Field>
 
           <Field label="Teléfono">
-            <Input name="phone" type="tel" placeholder="+34 600 000 000" onChange={handleChange} required />
+            <Input name="phone" type="tel" placeholder="Incluye el código de país: +1, +34, +57..." onChange={handleChange} required />
           </Field>
 
         </div>
