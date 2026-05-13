@@ -182,12 +182,10 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     );
 
     // ─── Comparación EXACTA del número de documento ───────────────────────
-    // El número de documento no admite tolerancia: debe coincidir exactamente,
-    // incluyendo la letra de control (X, Y, Z...). Se normaliza quitando
-    // puntos, guiones y espacios antes de comparar.
     function normalizeDocNumber(n) {
       return n.toUpperCase().replace(/[\.\-\s]/g, '').trim();
     }
+
     const normalizedUserDoc = normalizeDocNumber(userData.ndoc);
     const docIdMatch = normalizedUserDoc.length >= 4 && cleanOCR.includes(normalizedUserDoc);
 
@@ -195,15 +193,18 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
 
     const scores = calculateScores(userData, docs);
 
-    // Requiere que AMBOS coincidan (nombre Y número de documento).
-    // Con || bastaba que el nombre apareciese en el OCR para aprobar,
-    // lo que permitía falsos positivos cuando la letra de control era errónea.
-    if (nameMatch && docIdMatch) {
-      scores.trustScore = Math.max(95, scores.trustScore);
-      scores.result = 'approved';
+    // ─── VALIDACIÓN OCR CRÍTICA ──────────────────────────────────────────
+    const ocrValid = nameMatch && docIdMatch;
+
+    if (!ocrValid) {
+      console.warn(`[SECURITY] OCR mismatch detectado en ${verificationId}. Forzando REJECTED.`);
+
+      scores.result = 'rejected';
+      scores.trustScore = Math.min(scores.trustScore, 40);
+      scores.fraudScore = Math.max(scores.fraudScore, 60);
     } else {
-      scores.trustScore = Math.max(40, scores.trustScore - 25);
-      if (scores.trustScore < 60) scores.result = 'review';
+      scores.result = 'approved';
+      scores.trustScore = Math.max(scores.trustScore, 95);
     }
 
     // ─── Consulta AML ────────────────────────────────────────────────────
@@ -213,7 +214,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     // ─── BLOQUEO POR AML ─────────────────────────────────────────────────
     if (amlResult.isAlert) {
       console.warn(`[SECURITY] ⚠️  ALERTA AML ACTIVA para ${userData.nombre} ${userData.apellido}. Forzando REJECTED.`);
-      scores.result    = 'aml_flagged';
+      scores.result     = 'aml_flagged';
       scores.fraudScore = 95;
       scores.trustScore = 5;
     }
@@ -229,15 +230,24 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       aiReport = await callGroq(userDataWithDocType, scores, amlResult);
     } catch (groqErr) {
       console.warn('[GROQ ERROR]:', groqErr.message);
+
       aiReport = amlResult.isAlert
         ? `ALERTA CRÍTICA: El sujeto ${userData.nombre} ${userData.apellido} ha sido identificado en listas de sanciones internacionales. ${amlResult.message}`
-        : `ANÁLISIS AUTOMÁTICO: Nombre: ${nameMatch ? 'SÍ' : 'NO'} (${nameSim}%). Identificación: ${docIdMatch ? 'SÍ' : 'NO'} (${docIdSim}%). Trust Score: ${scores.trustScore}%.`;
+        : `ANÁLISIS AUTOMÁTICO: Nombre: ${nameMatch ? 'SÍ' : 'NO'} (${nameSim}%). Documento: ${docIdMatch ? 'SÍ' : 'NO'}. Trust Score: ${scores.trustScore}%.`;
     }
 
     // ─── Status final ─────────────────────────────────────────────────────
     const finalStatus = amlResult.isAlert
       ? 'REJECTED'
-      : (scores.result === 'approved' ? 'APPROVED' : (scores.result === 'review' ? 'REVIEW' : 'REJECTED'));
+      : (
+          scores.result === 'approved'
+            ? 'APPROVED'
+            : (
+                scores.result === 'review'
+                  ? 'REVIEW'
+                  : 'REJECTED'
+              )
+        );
 
     const riskLevel = amlResult.isAlert
       ? 'HIGH'
@@ -248,7 +258,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       data: {
         amlCheck:  amlResult.message,
         amlAlert:  amlResult.isAlert,
-        ocrMatch:  nameMatch && docIdMatch,
+        ocrMatch:  ocrValid,
         aiReport,
         riskLevel,
       }
@@ -327,13 +337,21 @@ async function downloadReport(req, res, next) {
 
 function calculateScores(userData, docs) {
   let doc = 95;
+
   if (docs.length >= 2) doc += 4;
   if (userData.pais === 'España') doc += 1;
 
   doc = Math.min(99, doc);
+
   const fraud = 2;
   const trust = Math.round((doc * 0.8) + ((100 - fraud) * 0.2));
-  return { docScore: doc, fraudScore: fraud, trustScore: trust, result: 'approved' };
+
+  return {
+    docScore: doc,
+    fraudScore: fraud,
+    trustScore: trust,
+    result: 'approved'
+  };
 }
 
 async function getStatus(req, res, next) {
@@ -348,7 +366,11 @@ async function getStatus(req, res, next) {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
 
-    res.json({ id: verif.id, status: verif.status, completedAt: verif.completedAt });
+    res.json({
+      id: verif.id,
+      status: verif.status,
+      completedAt: verif.completedAt
+    });
   } catch (err) {
     next(err);
   }
