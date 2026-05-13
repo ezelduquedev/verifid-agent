@@ -3,7 +3,6 @@ const fetch = globalThis.fetch || require('node-fetch');
 // ─────────────────────────────────────────────────────────────────────────────
 // LISTA NEGRA LOCAL
 // Red de seguridad cuando OpenSanctions no devuelve resultados o falla.
-// Cubre sujetos de alta peligrosidad internacional con variantes de nombre.
 // ─────────────────────────────────────────────────────────────────────────────
 const LISTA_NEGRA = [
   {
@@ -49,6 +48,12 @@ const LISTA_NEGRA = [
     reason:   'Sanciones UE / OFAC desde 2022.',
   },
   {
+    keywords: ['DAWOOD IBRAHIM', 'DAUD IBRAHIM', 'DAWOOD IBRAHIM KASKAR', 'DAUD IBRAHIM MEMON'],
+    entity:   'Dawood Ibrahim Kaskar',
+    level:    'HIGH',
+    reason:   'Terrorismo internacional. Lista OFAC / ONU / Interpol.',
+  },
+  {
     keywords: ['TEST FRAUD', 'FRAUD TEST'],
     entity:   'Test Fraud Entity',
     level:    'MEDIUM',
@@ -57,22 +62,20 @@ const LISTA_NEGRA = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Normaliza un nombre para comparación: elimina tildes, dobles espacios,
-// caracteres especiales y convierte a mayúsculas.
+// Normaliza un nombre: elimina tildes, caracteres especiales, mayúsculas
 // ─────────────────────────────────────────────────────────────────────────────
 function normalizarNombre(nombre) {
   return (nombre || '')
     .toUpperCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos
-    .replace(/[^A-Z0-9 ]/g, ' ')     // quita guiones, puntos, etc.
-    .replace(/\s+/g, ' ')            // colapsa espacios múltiples
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Comprueba el nombre contra la lista negra local.
-// Devuelve el objeto de alerta o null si no hay coincidencia.
+// Comprueba el nombre contra la lista negra local
 // ─────────────────────────────────────────────────────────────────────────────
 function checkListaNegra(nombreNormalizado) {
   const match = LISTA_NEGRA.find(entry =>
@@ -92,9 +95,6 @@ function checkListaNegra(nombreNormalizado) {
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Construye el resultado limpio (sin alerta).
-// ─────────────────────────────────────────────────────────────────────────────
 function resultadoLimpio(sufijo = '') {
   return {
     isAlert:       false,
@@ -108,58 +108,79 @@ function resultadoLimpio(sufijo = '') {
 // ─────────────────────────────────────────────────────────────────────────────
 // checkAML — función principal exportada
 //
-// Flujo:
-//   1. Si no hay API key → modo simulación (lista local únicamente)
-//   2. Si hay API key → consulta OpenSanctions API
-//      a. Si score ≥ 0.5 → ALERTA de la API
-//      b. Si 0 resultados o score bajo → comprueba lista local como fallback
-//      c. Si error técnico → comprueba lista local como último recurso
+// Usa el endpoint /match/ de OpenSanctions, diseñado para KYC.
+// Es mucho más preciso que /search/ porque compara entidades estructuradas,
+// no texto libre. Maneja variantes de nombre, transliteraciones y alias.
 //
-// Siempre devuelve: { isAlert, level, message, matchedEntity, source }
+// Flujo:
+//   1. Sin API key → lista local únicamente (modo simulación)
+//   2. Con API key → /match/ de OpenSanctions
+//      a. score ≥ 0.7  → ALERTA fuerte (coincidencia directa)
+//      b. score ≥ 0.5  → ALERTA moderada (posible coincidencia)
+//      c. score < 0.5  → fallback lista local
+//      d. Error técnico → fallback lista local
 // ─────────────────────────────────────────────────────────────────────────────
-async function checkAML(nombreCompleto) {
-  const apiKey         = process.env.OPENSANCTIONS_API_KEY;
-  const nombreQuery    = (nombreCompleto || '').trim();
-  const nombreNorm     = normalizarNombre(nombreQuery);
+async function checkAML(nombreCompleto, userData = {}) {
+  const apiKey      = process.env.OPENSANCTIONS_API_KEY;
+  const nombreQuery = (nombreCompleto || '').trim();
+  const nombreNorm  = normalizarNombre(nombreQuery);
 
   if (!nombreQuery) {
-    console.warn('[AML SERVICE] Nombre vacío recibido. Devolviendo resultado limpio.');
+    console.warn('[AML SERVICE] Nombre vacío recibido.');
     return resultadoLimpio(' (Nombre no proporcionado)');
   }
 
-  // ── MODO SIMULACIÓN (sin API key configurada) ──────────────────────────────
+  // ── MODO SIMULACIÓN ────────────────────────────────────────────────────────
   if (!apiKey || apiKey === 'tu_key_aqui' || apiKey.trim() === '') {
-    console.warn(`[AML SERVICE] ⚠️  Modo Simulación activo. Sin API key. Comprobando lista local para: ${nombreNorm}`);
+    console.warn(`[AML SERVICE] ⚠️  Modo Simulación. Comprobando lista local para: ${nombreNorm}`);
     const matchLocal = checkListaNegra(nombreNorm);
     if (matchLocal) {
       console.warn(`[AML SERVICE] 🚨 ALERTA LOCAL: ${matchLocal.matchedEntity}`);
       return { ...matchLocal, source: 'LOCAL_BLACKLIST_SIM' };
     }
-    return {
-      ...resultadoLimpio(' (Simulado — sin API key)'),
-      source: 'LOCAL_BLACKLIST_SIM',
-    };
+    return { ...resultadoLimpio(' (Simulado — sin API key)'), source: 'LOCAL_BLACKLIST_SIM' };
   }
 
-  // ── CONSULTA REAL A OPENSANCTIONS ──────────────────────────────────────────
+  // ── CONSULTA REAL — endpoint /match/ ──────────────────────────────────────
+  // El endpoint /match/ acepta un objeto de entidad estructurado.
+  // Esto permite que OpenSanctions compare contra todos los alias conocidos
+  // de cada entidad sancionada, incluyendo transliteraciones.
   try {
-    // Búsqueda con el nombre completo — sin filtro schema para mayor cobertura
-    const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(nombreQuery)}&limit=5`;
+    const url = 'https://api.opensanctions.org/match/default?algorithm=regression-v1&threshold=0.5';
 
-    console.log(`[AML SERVICE] Consultando OpenSanctions para: "${nombreQuery}"`);
+    // Construimos la query con todos los datos disponibles del usuario.
+    // Cuantos más datos enviemos, más preciso es el match.
+    const queryEntity = {
+      schema: 'Person',
+      properties: {
+        name: [nombreQuery],
+        ...(userData.fecha       ? { birthDate:    [userData.fecha] }  : {}),
+        ...(userData.nac         ? { nationality:  [userData.nac] }    : {}),
+        ...(userData.ndoc        ? { idNumber:      [userData.ndoc] }  : {}),
+      }
+    };
+
+    console.log(`[AML SERVICE] Consultando OpenSanctions /match/ para: "${nombreQuery}"`);
+    console.log(`[AML SERVICE] Query entity:`, JSON.stringify(queryEntity, null, 2));
 
     const response = await fetch(url, {
-      method:  'GET',
+      method:  'POST',
       headers: {
         'Authorization': `ApiKey ${apiKey}`,
+        'Content-Type':  'application/json',
         'Accept':        'application/json',
       },
-      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        queries: {
+          q1: queryEntity
+        }
+      }),
+      signal: AbortSignal.timeout(15000),
     });
 
     // ── Plan trial agotado ────────────────────────────────────────────────────
     if (response.status === 402) {
-      console.warn('[AML SERVICE] Límite trial alcanzado (402). Usando lista local como contingencia.');
+      console.warn('[AML SERVICE] Límite trial (402). Usando lista local.');
       const matchLocal = checkListaNegra(nombreNorm);
       if (matchLocal) {
         return {
@@ -171,65 +192,65 @@ async function checkAML(nombreCompleto) {
       return {
         isAlert:       false,
         level:         'NONE',
-        message:       'REVISIÓN MANUAL REQUERIDA: Límite del plan trial alcanzado. Verificar manualmente en OpenSanctions.',
+        message:       'REVISIÓN MANUAL REQUERIDA: Límite del plan trial alcanzado.',
         matchedEntity: null,
         source:        'MANUAL_REVIEW',
       };
     }
 
-    // ── Respuesta no OK ───────────────────────────────────────────────────────
     if (!response.ok) {
       throw new Error(`OpenSanctions respondió con status HTTP ${response.status}`);
     }
 
-    const data            = await response.json();
-    const totalResultados = data.results?.length || 0;
+    const data      = await response.json();
+    const resultados = data.responses?.q1?.results || [];
+    const total      = resultados.length;
 
-    console.log(`[AML DEBUG] Resultados recibidos de OpenSanctions: ${totalResultados}`);
+    console.log(`[AML DEBUG] /match/ resultados recibidos: ${total}`);
 
-    if (totalResultados > 0) {
-      // Log detallado de todos los resultados para diagnóstico
-      data.results.forEach((r, i) => {
-        console.log(`[AML DEBUG] Resultado ${i + 1}: ${r.caption} — score: ${r.score} — schema: ${r.schema} — datasets: ${r.datasets?.join(',')}`);
+    if (total > 0) {
+      resultados.forEach((r, i) => {
+        console.log(`[AML DEBUG] Resultado ${i + 1}: ${r.caption} — score: ${r.score} — datasets: ${r.datasets?.join(',')}`);
       });
 
-      // Umbral 0.45 para capturar nombres compuestos en castellano con variaciones ortográficas
-      // Se filtra además que sea una entidad Person o similar (no empresas si el input es un nombre de persona)
-      const amenaza = data.results.find(r => r.score >= 0.45);
+      // El endpoint /match/ ya filtra por threshold=0.5 en la URL,
+      // pero comprobamos igualmente por seguridad.
+      // Score ≥ 0.7 = coincidencia fuerte, ≥ 0.5 = coincidencia moderada.
+      const amenaza = resultados.find(r => r.score >= 0.5);
 
       if (amenaza) {
-        const datasets = amenaza.datasets?.join(', ')              || 'listas internacionales';
-        const topics   = amenaza.properties?.topics?.join(', ')    || 'entidad de alto riesgo';
-        const paises   = amenaza.properties?.country?.join(', ')   || 'desconocido';
+        const datasets = amenaza.datasets?.join(', ')           || 'listas internacionales';
+        const topics   = amenaza.properties?.topics?.join(', ') || 'entidad de alto riesgo';
+        const paises   = amenaza.properties?.country?.join(', ')|| 'desconocido';
+        const nivel    = amenaza.score >= 0.7 ? 'COINCIDENCIA DIRECTA' : 'POSIBLE COINCIDENCIA';
 
         const msg = [
-          `ALERTA AML: Coincidencia con "${amenaza.caption}"`,
+          `ALERTA AML [${nivel}]: Coincidencia con "${amenaza.caption}"`,
           `(Score: ${Math.round(amenaza.score * 100)}%).`,
-          `Tipo de entidad: ${amenaza.schema}.`,
           `Clasificación de riesgo: ${topics}.`,
           `País asociado: ${paises}.`,
           `Fuente de datos: ${datasets}.`,
         ].join(' ');
 
-        console.warn(`[AML SERVICE] 🚨 ALERTA API: ${amenaza.caption} — Score: ${amenaza.score}`);
+        console.warn(`[AML SERVICE] 🚨 ALERTA /match/: ${amenaza.caption} — Score: ${amenaza.score}`);
         return {
           isAlert:       true,
           level:         'HIGH',
           message:       msg,
           matchedEntity: amenaza.caption,
-          source:        'OPENSANCTIONS_API',
+          source:        'OPENSANCTIONS_MATCH',
         };
       }
     }
 
-    // ── Sin coincidencias suficientes → fallback lista local ─────────────────
-    console.log('[AML SERVICE] Sin coincidencias en API (score < 0.45 o 0 resultados). Comprobando lista local...');
+    // ── Sin coincidencias → fallback lista local ──────────────────────────────
+    console.log('[AML SERVICE] Sin coincidencias en /match/. Comprobando lista local...');
     const matchLocal = checkListaNegra(nombreNorm);
     if (matchLocal) {
-      console.warn(`[AML SERVICE] 🚨 ALERTA LOCAL (fallback API): ${matchLocal.matchedEntity}`);
+      console.warn(`[AML SERVICE] 🚨 ALERTA LOCAL (fallback): ${matchLocal.matchedEntity}`);
       return {
         ...matchLocal,
-        message: matchLocal.message + ' (Detectado por lista de seguridad local — API sin resultado)',
+        message: matchLocal.message + ' (Detectado por lista de seguridad local)',
         source:  'LOCAL_BLACKLIST_FALLBACK',
       };
     }
@@ -238,13 +259,11 @@ async function checkAML(nombreCompleto) {
     return resultadoLimpio();
 
   } catch (error) {
-    // ── Error técnico (timeout, red, JSON inválido, etc.) ────────────────────
-    console.error('[AML SERVICE] Error en consulta real:', error.message);
+    console.error('[AML SERVICE] Error en consulta /match/:', error.message);
 
-    // La lista local actúa como última línea de defensa
     const matchLocal = checkListaNegra(nombreNorm);
     if (matchLocal) {
-      console.warn(`[AML SERVICE] 🚨 Error técnico pero coincidencia local encontrada: ${matchLocal.matchedEntity}`);
+      console.warn(`[AML SERVICE] 🚨 Error técnico pero coincidencia local: ${matchLocal.matchedEntity}`);
       return {
         ...matchLocal,
         message: matchLocal.message + ' (Error técnico en API — detectado por lista local)',
@@ -252,12 +271,10 @@ async function checkAML(nombreCompleto) {
       };
     }
 
-    // Si hay error y no hay coincidencia local, pedir revisión manual
-    // (no aprobamos en caso de duda, por principio de precaución)
     return {
       isAlert:       false,
       level:         'NONE',
-      message:       `REVISIÓN MANUAL REQUERIDA: No se pudo conectar con el servicio de sanciones internacionales. Error técnico: ${error.message}`,
+      message:       `REVISIÓN MANUAL REQUERIDA: No se pudo conectar con el servicio de sanciones. Error: ${error.message}`,
       matchedEntity: null,
       source:        'ERROR_TECHNICAL',
     };
