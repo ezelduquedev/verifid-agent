@@ -189,7 +189,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     }
 
     // ─── Consulta AML ────────────────────────────────────────────────────
-    const amlResult = await checkAML(`${userData.nombre} ${userData.apellido}`);
+    const amlResult = await checkAML(`${userData.nombre} ${userData.apellido}`, userData);
     console.log(`[AML] Resultado para ${userData.nombre} ${userData.apellido}:`, amlResult.message);
 
     // ─── BLOQUEO POR AML ─────────────────────────────────────────────────
