@@ -92,7 +92,6 @@ async function uploadDocument(req, res, next) {
     // ─── Validación semántica de la cara del documento ────────────────────
     if (!SINGLE_SIDE_TYPES_CTRL.includes(effectiveDocTypeForSide) && ocrResult) {
       const ocrUpper = ocrResult.toUpperCase();
-      // Indicadores de anverso: foto, nombre, apellidos, fecha nacimiento, MRZ solo en reverso
       const frontIndicators = ['APELLIDOS', 'APELLIDO', 'NOMBRE', 'FECHA DE NACIMIENTO', 'DATE OF BIRTH', 'NATIONALITY', 'NACIONALIDAD'];
       const backIndicators = ['EQUIPO NACIONAL', 'DOMICILIO', 'LUGAR DE NACIMIENTO', 'CAN', 'IDESP', 'SOPORTE', 'NUM SOPORTE'];
       
@@ -165,20 +164,17 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const fullTextOCR = docs.map(d => d.ocrResult || '').join(' ').toUpperCase();
     const cleanOCR = fullTextOCR.replace(/[\n\r]/g, ' ');
 
-    // Comparación mejorada: token_set_ratio tolerante a reordenamientos y OCR ruidoso
     const nombreCompleto = `${userData.nombre} ${userData.apellido}`.toUpperCase();
     const nameSim  = Math.max(
       fuzz.partial_ratio(userData.nombre.toUpperCase(), cleanOCR),
       fuzz.token_set_ratio(nombreCompleto, cleanOCR),
       fuzz.partial_ratio(userData.apellido.toUpperCase(), cleanOCR)
     );
-    // Número de documento: comparar dígito a dígito con tolerancia 1 carácter de OCR
     const docIdSim = Math.max(
       fuzz.partial_ratio(userData.ndoc.toUpperCase(), cleanOCR),
       fuzz.ratio(userData.ndoc.toUpperCase(), cleanOCR)
     );
 
-    // Umbral reducido a 65 para tolerar errores OCR en documentos impresos
     const nameMatch  = nameSim >= 65;
     const docIdMatch = docIdSim >= 65;
 
@@ -204,10 +200,15 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       scores.trustScore = 5;
     }
 
+    // ─── FIX: Recuperar docType real del documento subido ────────────────
+    const docTypeMap = { CEDULA: 'Cédula', DNI: 'DNI', NIE: 'NIE', PASAPORTE: 'Pasaporte' };
+    const docTypeReal = docTypeMap[docs[0]?.type] || userData.docType;
+    const userDataWithDocType = { ...userData, docType: docTypeReal };
+
     // ─── Informe IA (Groq) ────────────────────────────────────────────────
     let aiReport = '';
     try {
-      aiReport = await callGroq(userData, scores, amlResult);
+      aiReport = await callGroq(userDataWithDocType, scores, amlResult);
     } catch (groqErr) {
       console.warn('[GROQ ERROR]:', groqErr.message);
       aiReport = amlResult.isAlert
