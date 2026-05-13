@@ -180,17 +180,25 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       fuzz.token_set_ratio(nombreCompleto, cleanOCR),
       fuzz.partial_ratio(userData.apellido.toUpperCase(), cleanOCR)
     );
-    const docIdSim = Math.max(
-      fuzz.partial_ratio(userData.ndoc.toUpperCase(), cleanOCR),
-      fuzz.ratio(userData.ndoc.toUpperCase(), cleanOCR)
-    );
 
-    const nameMatch  = nameSim >= 65;
-    const docIdMatch = docIdSim >= 65;
+    // ─── Comparación EXACTA del número de documento ───────────────────────
+    // El número de documento no admite tolerancia: debe coincidir exactamente,
+    // incluyendo la letra de control (X, Y, Z...). Se normaliza quitando
+    // puntos, guiones y espacios antes de comparar.
+    function normalizeDocNumber(n) {
+      return n.toUpperCase().replace(/[\.\-\s]/g, '').trim();
+    }
+    const normalizedUserDoc = normalizeDocNumber(userData.ndoc);
+    const docIdMatch = normalizedUserDoc.length >= 4 && cleanOCR.includes(normalizedUserDoc);
+
+    const nameMatch = nameSim >= 65;
 
     const scores = calculateScores(userData, docs);
 
-    if (nameMatch || docIdMatch) {
+    // Requiere que AMBOS coincidan (nombre Y número de documento).
+    // Con || bastaba que el nombre apareciese en el OCR para aprobar,
+    // lo que permitía falsos positivos cuando la letra de control era errónea.
+    if (nameMatch && docIdMatch) {
       scores.trustScore = Math.max(95, scores.trustScore);
       scores.result = 'approved';
     } else {
