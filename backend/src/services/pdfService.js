@@ -29,6 +29,16 @@ async function generatePDF(verif, userData) {
     const isAmlAlert = verif.riskAssessment?.amlAlert === true ||
       (verif.riskAssessment?.amlCheck || '').toUpperCase().includes('ALERTA AML');
 
+    // ─── Traducción de estados al español ────────────────────────────────
+    const STATUS_ES = {
+      APPROVED:   'APROBADO',
+      REJECTED:   'RECHAZADO',
+      REVIEW:     'EN REVISIÓN',
+      PENDING:    'PENDIENTE',
+      PROCESSING: 'PROCESANDO',
+    };
+    const statusLabel = STATUS_ES[verif.status] || verif.status;
+
     // ─── ENCABEZADO ──────────────────────────────────────────────────────
     doc.fillColor('#1a2a6c').fontSize(22).text('VERIFID AGENT', { align: 'center', characterSpacing: 2 });
     doc.fillColor('#000').fontSize(10).text('Sistema KYC con Inteligencia Artificial', { align: 'center' });
@@ -38,7 +48,7 @@ async function generatePDF(verif, userData) {
     const statusColor = isApproved ? '#27ae60' : '#e74c3c';
     const resultY = doc.y;
     doc.rect(50, resultY, 500, 40).fill('#f8f9fa');
-    doc.fillColor(statusColor).fontSize(16).text(`RESULTADO: ${verif.status}`, 60, resultY + 12);
+    doc.fillColor(statusColor).fontSize(16).text(`RESULTADO: ${statusLabel}`, 60, resultY + 12);
     doc.moveDown(2.5);
 
     // ─── BLOQUE DE ALERTA AML ─────────────────────────────────────────────
