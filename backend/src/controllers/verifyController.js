@@ -92,15 +92,25 @@ async function uploadDocument(req, res, next) {
     // ─── Validación semántica de la cara del documento ────────────────────
     if (!SINGLE_SIDE_TYPES_CTRL.includes(effectiveDocTypeForSide) && ocrResult) {
       const ocrUpper = ocrResult.toUpperCase();
-      const frontIndicators = ['APELLIDOS', 'APELLIDO', 'NOMBRE', 'FECHA DE NACIMIENTO', 'DATE OF BIRTH', 'NATIONALITY', 'NACIONALIDAD'];
-      const backIndicators = ['EQUIPO NACIONAL', 'DOMICILIO', 'LUGAR DE NACIMIENTO', 'CAN', 'IDESP', 'SOPORTE', 'NUM SOPORTE'];
-      
+
+      const frontIndicators = [
+        'APELLIDOS', 'FECHA DE NACIMIENTO', 'DATE OF BIRTH',
+        'NATIONALITY', 'NACIONALIDAD', 'SEXO', 'VÁLIDO HASTA', 'VALID UNTIL'
+      ];
+
+      const backIndicators = [
+        'DOMICILIO', 'LUGAR DE NACIMIENTO', 'NOMBRE DEL PADRE',
+        'NOMBRE DE LA MADRE', 'DATOS FILIATORIOS', 'HUELLA DACTILAR',
+        'FINGERPRINT', 'PARENTAGE', 'I<<ESP', 'P<ESP',
+        'CAN', 'IDESP', 'SOPORTE', 'NUM SOPORTE'
+      ];
+
       const frontScore = frontIndicators.filter(ind => ocrUpper.includes(ind)).length;
       const backScore  = backIndicators.filter(ind => ocrUpper.includes(ind)).length;
-      
+
       const likelySide = frontScore >= backScore ? 'front' : 'back';
-      
-      if (likelySide !== side && (frontScore + backScore) >= 1) {
+
+      if (likelySide !== side && (frontScore + backScore) >= 2) {
         const expected = side === 'front' ? 'anverso' : 'reverso';
         const detected = likelySide === 'front' ? 'anverso' : 'reverso';
         return res.status(422).json({
