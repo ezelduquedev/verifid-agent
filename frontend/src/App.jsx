@@ -47,7 +47,7 @@ function ProgressStrip({ currentStep, finalResult }) {
               }}>
                 {done ? '✓' : idx}
               </div>
-              <span style={{
+              <span className="progress-label" style={{
                 fontSize: '11px',
                 fontWeight: isActive ? 700 : 500,
                 color: done ? '#15803d' : isActive ? 'var(--accent)' : '#64748b',
@@ -198,7 +198,7 @@ function App() {
         flex: 1, width: '100%', maxWidth: '560px', margin: '0 auto',
         display: currentStep === 0 ? 'none' : 'flex',
         flexDirection: 'column', justifyContent: 'flex-start',
-        padding: '20px', boxSizing: 'border-box',
+        padding: 'clamp(12px, 4vw, 20px)', boxSizing: 'border-box',
       }}>
 
         {/* Paso 1: Datos personales */}

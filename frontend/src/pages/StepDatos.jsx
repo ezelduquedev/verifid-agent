@@ -74,7 +74,7 @@ const StepDatos = ({ onStepComplete }) => {
       <form onSubmit={handleSubmit}>
         <div className="card mb12">
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
             <Field label="Nombre">
               <Input name="firstName" placeholder="Erick" onChange={handleChange} required />
             </Field>
@@ -87,7 +87,7 @@ const StepDatos = ({ onStepComplete }) => {
             <Input name="documentNumber" placeholder="13267890D" onChange={handleChange} required />
           </Field>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
             <Field label="Fecha de Nacimiento">
               <Input name="birthDate" type="date" onChange={handleChange} required />
             </Field>

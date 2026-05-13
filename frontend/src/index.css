@@ -341,3 +341,59 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── ANIMATIONS ── */
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE MOBILE ─────────────────────────────────────── */
+
+/* Oculta las etiquetas de texto en la barra de pasos en pantallas muy estrechas */
+@media (max-width: 360px) {
+  .progress-label { display: none; }
+}
+
+/* Reduce paddings internos en móvil */
+@media (max-width: 480px) {
+  .card {
+    padding: 16px;
+  }
+  .card-login {
+    padding: 20px 16px;
+  }
+  .step-layout {
+    padding: 20px 12px;
+  }
+  /* La barra de progreso encoge el spacing */
+  .progress {
+    margin-bottom: 20px;
+  }
+  /* Section header en pantallas pequeñas */
+  .sh-title {
+    font-size: 16px;
+  }
+  /* El área de info box */
+  .info-box {
+    font-size: 11px;
+  }
+  /* Reduce el spinner de análisis */
+  .analyzing {
+    padding: 20px 16px;
+  }
+  .a-steps {
+    max-width: 100%;
+  }
+}
+
+/* En pantallas muy estrechas, asegura que nada desborde */
+@media (max-width: 380px) {
+  body {
+    font-size: 13px;
+  }
+  .sh-title {
+    font-size: 15px;
+  }
+  .t-h {
+    font-size: 16px;
+  }
+  /* El login en pantallas muy pequeñas */
+  .card-login {
+    padding: 16px 12px;
+  }
+}

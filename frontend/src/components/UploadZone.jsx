@@ -17,6 +17,8 @@ const selectStyle = {
   cursor: 'pointer',
   outline: 'none',
   flex: 1,
+  minWidth: '120px',
+  width: '100%',
 }
 
 const UploadZone = ({ verificationId, onUploadSuccess }) => {
@@ -72,7 +74,14 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
       }
     } catch (err) {
       console.error('Upload error:', err)
-      setError(err.response?.data?.error || 'Error al procesar el documento.')
+      const errData = err.response?.data
+      if (err.response?.status === 422 && errData?.detectedSide) {
+        const detectedLabel = errData.detectedSide === 'front' ? 'ANVERSO' : 'REVERSO'
+        const requestedLabel = errData.requestedSide === 'front' ? 'anverso' : 'reverso'
+        setError(`⚠️ Cara incorrecta: la imagen parece el ${detectedLabel} pero seleccionaste ${requestedLabel}. Da la vuelta al documento y vuelve a intentarlo.`)
+      } else {
+        setError(errData?.error || 'Error al procesar el documento.')
+      }
     } finally { setLoading(false) }
   }
 
@@ -128,7 +137,7 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: '11px', textTransform: 'uppercase', opacity: .6 }}>Tipo de documento</label>
           <select value={docType} onChange={e => { setDocType(e.target.value); setUploaded({ front: false, back: false }); setSide('front') }} style={selectStyle}>
