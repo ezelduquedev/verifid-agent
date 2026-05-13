@@ -43,7 +43,7 @@ Simula la arquitectura utilizada por **fintechs y plataformas RegTech** para pro
 | CU-03 | Bloqueo automático por alerta AML | **PASS ✓** — Flag `amlAlert` activado, RECHAZADO |
 | CU-04 | Verificación con Cédula (documento una cara) | **PASS ✓** — Pipeline detecta tipo y activa análisis tras una imagen |
 | CU-05 | Rechazo por baja similitud OCR | **PASS ✓** — Trust Score reducido, estado EN REVISIÓN/RECHAZADO |
-| CU-06 | Generación y descarga del informe PDF | **PASS ✓** — PDF generado en memoria con todos los datos |
+| CU-06 | Restablecer contraseña en caso de olvido | **PASS ✓** — Contraseña nueva actualizada |
 
 ---
 
