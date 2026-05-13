@@ -28,7 +28,7 @@ Simula la arquitectura utilizada por **fintechs y plataformas RegTech** para pro
 | OCR con Tesseract + detección de cara | ✅ Completado |
 | Fuzzy matching de identidad | ✅ Completado |
 | Análisis AML / PEP (OpenSanctions) | ✅ Completado |
-| Informe narrativo generado con IA (Claude) | ✅ Completado |
+| Informe narrativo generado con IA (Groq) | ✅ Completado |
 | Emisión de PDF dinámico | ✅ Completado |
 | Frontend responsive (móvil y escritorio) | ✅ Completado |
 
