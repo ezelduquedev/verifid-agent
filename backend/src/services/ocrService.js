@@ -1,6 +1,7 @@
 const Tesseract = require('tesseract.js');
 const sharp = require('sharp');
 
+
 /**
  * Servicio de extracción de texto mediante OCR (RF-03)
  * @param {Buffer} imageBuffer - El archivo de imagen en memoria enviado desde el controlador

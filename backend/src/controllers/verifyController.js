@@ -77,11 +77,14 @@ async function uploadDocument(req, res, next) {
       const existingDocs = await prisma.document.findMany({ where: { verificationId: id } });
       const sideAlreadyUploaded = existingDocs.find(d => d.side === side);
       if (sideAlreadyUploaded) {
-        return res.status(400).json({ error: `El ${side === 'front' ? 'anverso' : 'reverso'} ya fue subido. Por favor sube el ${side === 'front' ? 'reverso' : 'anverso'}.` });
+        // Sobrescribimos en lugar de rechazar con 400
+        // Evita el bloqueo cuando el lado quedó a medias en un intento anterior
+        console.warn(`[UPLOAD] Lado ${side} ya existía en ${id}. Sobrescribiendo...`);
+        await prisma.document.deleteMany({ where: { verificationId: id, side: side } });
       }
     }
 
-    // ─── OCR + validación de cara con IA ─────────────────────────────────
+    // ─── OCR ─────────────────────────────────────────────────────────────
     let ocrResult = null;
     try {
       ocrResult = await runOCR(req.file.buffer);
@@ -137,7 +140,6 @@ async function uploadDocument(req, res, next) {
       },
     });
 
-    // Actualizar docType en declaredData si no estaba o era diferente
     if (docTypeFromBody && docTypeFromBody !== userData.docType) {
       await prisma.riskAssessment.update({
         where: { verificationId: id },
@@ -166,6 +168,24 @@ async function uploadDocument(req, res, next) {
   }
 }
 
+// ─── Reset de un lado del documento (permite resubida manual sin bloqueo) ─────
+async function resetDocumentSide(req, res, next) {
+  try {
+    const { id, side } = req.params;
+
+    const verification = await prisma.verification.findUnique({ where: { id } });
+    if (!verification) return res.status(404).json({ error: 'Verificación no encontrada.' });
+    if (verification.userId !== req.user.userId) return res.status(403).json({ error: 'Acceso no autorizado.' });
+
+    await prisma.document.deleteMany({ where: { verificationId: id, side: side } });
+    await prisma.verification.update({ where: { id }, data: { status: 'PENDING' } });
+
+    res.json({ message: `Lado ${side} eliminado. Puedes volver a subirlo.` });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function runFullAnalysis(verificationId, userId, docs, userData) {
   try {
     await prisma.verification.update({ where: { id: verificationId }, data: { status: 'PROCESSING' } });
@@ -175,7 +195,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const cleanOCR = fullTextOCR.replace(/[\n\r]/g, ' ');
 
     const nombreCompleto = `${userData.nombre} ${userData.apellido}`.toUpperCase();
-    const nameSim  = Math.max(
+    const nameSim = Math.max(
       fuzz.partial_ratio(userData.nombre.toUpperCase(), cleanOCR),
       fuzz.token_set_ratio(nombreCompleto, cleanOCR),
       fuzz.partial_ratio(userData.apellido.toUpperCase(), cleanOCR)
@@ -187,56 +207,63 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     }
 
     function docNumberFuzzyMatch(normalizedUserDoc, cleanOCR) {
-      // 1. Intento exacto primero (rápido)
+      // 1. Exacto — rápido y sin coste
       if (cleanOCR.includes(normalizedUserDoc)) return true;
 
-      // 2. Búsqueda fuzzy en palabras del tamaño del número de documento
-      //    Tolera hasta 2 caracteres mal leídos por Tesseract (0→O, 1→I, Z→2, etc.)
+      // 2. Fuzzy por palabras — tolera 2 chars mal leídos (0→O, 1→I, Z→2, etc.)
       const docLen = normalizedUserDoc.length;
       const words = cleanOCR.split(/\s+/);
       for (const word of words) {
         const cleaned = word.replace(/[\.\-\s]/g, '');
         if (Math.abs(cleaned.length - docLen) <= 2) {
           const sim = fuzz.ratio(normalizedUserDoc, cleaned);
-          if (sim >= 75) return true; // Bajado de 80 → tolera más errores OCR en fotos reales
+          if (sim >= 75) return true;
         }
       }
+
+      // 3. Ventana deslizante sobre texto sin espacios
+      //    Captura números fragmentados por Tesseract en fotos de móvil
+      const noSpaces = cleanOCR.replace(/\s+/g, '');
+      for (let i = 0; i <= noSpaces.length - docLen; i++) {
+        const window = noSpaces.substring(i, i + docLen);
+        const sim = fuzz.ratio(normalizedUserDoc, window);
+        if (sim >= 75) return true;
+      }
+
       return false;
     }
 
     const normalizedUserDoc = normalizeDocNumber(userData.ndoc);
     const docIdMatch = normalizedUserDoc.length >= 4 && docNumberFuzzyMatch(normalizedUserDoc, cleanOCR);
 
-    const nameMatch = nameSim >= 55; // Bajado de 65 → fotos reales de móvil dan scores más bajos
+    // nameSim >= 55: bajado de 65, fotos reales de móvil dan scores más bajos
+    const nameMatch = nameSim >= 55;
 
     const scores = calculateScores(userData, docs);
 
-    // ─── Logs de diagnóstico para calibración con fotos reales ───────────
+    // ─── Logs de diagnóstico ──────────────────────────────────────────────
     console.log(`[OCR DEBUG] Texto extraído (primeros 300 chars): ${cleanOCR.substring(0, 300)}`);
     console.log(`[OCR DEBUG] nameSim: ${nameSim} | nameMatch: ${nameMatch}`);
     console.log(`[OCR DEBUG] ndoc buscado: ${normalizedUserDoc} | docIdMatch: ${docIdMatch}`);
 
     // ─── VALIDACIÓN OCR con tres niveles ─────────────────────────────────
-    //   - Ambos coinciden                     → APPROVED
-    //   - Al menos uno coincide parcialmente  → REVIEW (revisión manual)
-    //   - Nada coincide en absoluto           → REJECTED
+    //   - Ambos coinciden                         → APPROVED
+    //   - Al menos algo coincide (sim>=40 o docId) → REVIEW
+    //   - Nada coincide                           → REJECTED
     const ocrValid   = nameMatch && docIdMatch;
-    const ocrPartial = nameSim >= 40 || docIdMatch; // más permisivo para fotos reales
+    const ocrPartial = nameSim >= 40 || docIdMatch;
 
     if (!ocrValid && !ocrPartial) {
-      // Imagen completamente ilegible o datos totalmente distintos
       console.warn(`[SECURITY] OCR mismatch total en ${verificationId}. Forzando REJECTED.`);
       scores.result     = 'rejected';
       scores.trustScore = Math.min(scores.trustScore, 40);
       scores.fraudScore = Math.max(scores.fraudScore, 60);
     } else if (!ocrValid && ocrPartial) {
-      // Coincidencia parcial → revisión manual en lugar de rechazo automático
       console.warn(`[SECURITY] OCR coincidencia parcial en ${verificationId}. Enviando a REVIEW.`);
       scores.result     = 'review';
       scores.trustScore = Math.min(scores.trustScore, 70);
       scores.fraudScore = Math.max(scores.fraudScore, 30);
     } else {
-      // Todo coincide → aprobado
       scores.result     = 'approved';
       scores.trustScore = Math.max(scores.trustScore, 95);
     }
@@ -245,7 +272,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const amlResult = await checkAML(`${userData.nombre} ${userData.apellido}`, userData);
     console.log(`[AML] Resultado para ${userData.nombre} ${userData.apellido}:`, amlResult.message);
 
-    // ─── BLOQUEO POR AML ─────────────────────────────────────────────────
     if (amlResult.isAlert) {
       console.warn(`[SECURITY] ⚠️  ALERTA AML ACTIVA para ${userData.nombre} ${userData.apellido}. Forzando REJECTED.`);
       scores.result     = 'aml_flagged';
@@ -253,7 +279,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       scores.trustScore = 5;
     }
 
-    // ─── FIX: Recuperar docType real del documento subido ────────────────
     const docTypeMap = { CEDULA: 'Cédula', DNI: 'DNI', NIE: 'NIE', PASAPORTE: 'Pasaporte' };
     const docTypeReal = docTypeMap[docs[0]?.type] || userData.docType;
     const userDataWithDocType = { ...userData, docType: docTypeReal };
@@ -264,7 +289,6 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       aiReport = await callGroq(userDataWithDocType, scores, amlResult);
     } catch (groqErr) {
       console.warn('[GROQ ERROR]:', groqErr.message);
-
       aiReport = amlResult.isAlert
         ? `ALERTA CRÍTICA: El sujeto ${userData.nombre} ${userData.apellido} ha sido identificado en listas de sanciones internacionales. ${amlResult.message}`
         : `ANÁLISIS AUTOMÁTICO: Nombre: ${nameMatch ? 'SÍ' : 'NO'} (${nameSim}%). Documento: ${docIdMatch ? 'SÍ' : 'NO'}. Trust Score: ${scores.trustScore}%.`;
@@ -273,15 +297,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     // ─── Status final ─────────────────────────────────────────────────────
     const finalStatus = amlResult.isAlert
       ? 'REJECTED'
-      : (
-          scores.result === 'approved'
-            ? 'APPROVED'
-            : (
-                scores.result === 'review'
-                  ? 'REVIEW'
-                  : 'REJECTED'
-              )
-        );
+      : (scores.result === 'approved' ? 'APPROVED' : (scores.result === 'review' ? 'REVIEW' : 'REJECTED'));
 
     const riskLevel = amlResult.isAlert
       ? 'HIGH'
@@ -289,24 +305,12 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
 
     await prisma.riskAssessment.update({
       where: { verificationId },
-      data: {
-        amlCheck:  amlResult.message,
-        amlAlert:  amlResult.isAlert,
-        ocrMatch:  ocrValid,
-        aiReport,
-        riskLevel,
-      }
+      data: { amlCheck: amlResult.message, amlAlert: amlResult.isAlert, ocrMatch: ocrValid, aiReport, riskLevel }
     });
 
     await prisma.verification.update({
       where: { id: verificationId },
-      data: {
-        status:      finalStatus,
-        docScore:    scores.docScore,
-        fraudScore:  scores.fraudScore,
-        riskScore:   scores.trustScore,
-        completedAt: new Date()
-      }
+      data: { status: finalStatus, docScore: scores.docScore, fraudScore: scores.fraudScore, riskScore: scores.trustScore, completedAt: new Date() }
     });
 
   } catch (err) {
@@ -380,12 +384,7 @@ function calculateScores(userData, docs) {
   const fraud = 2;
   const trust = Math.round((doc * 0.8) + ((100 - fraud) * 0.2));
 
-  return {
-    docScore: doc,
-    fraudScore: fraud,
-    trustScore: trust,
-    result: 'approved'
-  };
+  return { docScore: doc, fraudScore: fraud, trustScore: trust, result: 'approved' };
 }
 
 async function getStatus(req, res, next) {
@@ -400,11 +399,7 @@ async function getStatus(req, res, next) {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
 
-    res.json({
-      id: verif.id,
-      status: verif.status,
-      completedAt: verif.completedAt
-    });
+    res.json({ id: verif.id, status: verif.status, completedAt: verif.completedAt });
   } catch (err) {
     next(err);
   }
@@ -413,6 +408,7 @@ async function getStatus(req, res, next) {
 module.exports = {
   startVerification,
   uploadDocument,
+  resetDocumentSide,
   getResult,
   downloadReport,
   getStatus
