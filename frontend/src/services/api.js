@@ -58,6 +58,7 @@ export const verifyService = {
     formData.append('docType', docType);
     return api.post(`/verify/${verificationId}/document`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // 2 minutos — OCR con Sharp puede tardar 30-40s en móvil
     });
   },
 

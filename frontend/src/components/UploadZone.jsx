@@ -60,7 +60,6 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
 
   const handleUpload = async () => {
     if (!currentFile) return setError(`Selecciona la imagen del ${LABELS[side]} primero`)
-    if (currentUploaded) return setError('Este lado ya fue subido.')
     setLoading(true); setError('')
     try {
       const response = await verifyService.uploadDocument(verificationId, files[side], side, docType)
@@ -75,7 +74,11 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
     } catch (err) {
       console.error('Upload error:', err)
       const errData = err.response?.data
-      if (err.response?.status === 422 && errData?.detectedSide) {
+
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        // Timeout — el backend puede estar procesando igualmente, no bloquear al usuario
+        setError('La conexión tardó demasiado. Espera 30 segundos y comprueba tu conexión antes de reintentar.')
+      } else if (err.response?.status === 422 && errData?.detectedSide) {
         const detectedLabel = errData.detectedSide === 'front' ? 'ANVERSO' : 'REVERSO'
         const requestedLabel = errData.requestedSide === 'front' ? 'anverso' : 'reverso'
         setError(`⚠️ Cara incorrecta: la imagen parece el ${detectedLabel} pero seleccionaste ${requestedLabel}. Da la vuelta al documento y vuelve a intentarlo.`)
@@ -113,13 +116,13 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
         {sidesNeeded.map(s => (
           <div
-            key={s} onClick={() => !uploaded[s] && setSide(s)}
+            key={s} onClick={() => !uploaded[s] && !loading && setSide(s)}
             style={{
               flex: 1, padding: '8px 12px', borderRadius: '8px',
               border: `1px solid ${uploaded[s] ? 'var(--success-border)' : side === s ? 'var(--accent-border)' : 'var(--border)'}`,
               background: uploaded[s] ? 'var(--success-bg)' : side === s ? 'var(--accent-bg)' : 'var(--code-bg)',
               display: 'flex', alignItems: 'center', gap: '6px',
-              cursor: uploaded[s] ? 'default' : 'pointer',
+              cursor: uploaded[s] || loading ? 'default' : 'pointer',
               transition: 'all .15s',
             }}
           >
@@ -140,7 +143,12 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: '11px', textTransform: 'uppercase', opacity: .6 }}>Tipo de documento</label>
-          <select value={docType} onChange={e => { setDocType(e.target.value); setUploaded({ front: false, back: false }); setSide('front') }} style={selectStyle}>
+          <select
+            value={docType}
+            onChange={e => { setDocType(e.target.value); setUploaded({ front: false, back: false }); setSide('front') }}
+            style={selectStyle}
+            disabled={loading}
+          >
             {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
@@ -149,13 +157,13 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
             <label style={{ fontSize: '11px', textTransform: 'uppercase', opacity: .6 }}>Cara a subir</label>
             <div style={{ display: 'flex', gap: '6px' }}>
               {[['front', 'Anverso'], ['back', 'Reverso']].map(([val, lbl]) => (
-                <button key={val} type="button" onClick={() => setSide(val)} disabled={uploaded[val]}
+                <button key={val} type="button" onClick={() => setSide(val)} disabled={uploaded[val] || loading}
                   style={{
                     flex: 1, padding: '9px', border: `1.5px solid ${uploaded[val] ? 'var(--success-border)' : side === val ? 'var(--accent-border)' : 'var(--border)'}`,
                     borderRadius: '8px', background: uploaded[val] ? 'var(--success-bg)' : side === val ? 'var(--accent-bg)' : 'var(--surface-1)',
                     color: uploaded[val] ? '#15803d' : side === val ? 'var(--accent)' : 'var(--text)',
                     fontSize: '13px', fontWeight: side === val ? 700 : 400,
-                    cursor: uploaded[val] ? 'default' : 'pointer', width: 'auto',
+                    cursor: uploaded[val] || loading ? 'default' : 'pointer', width: 'auto',
                     boxShadow: 'none', transform: 'none',
                   }}
                 >
@@ -181,7 +189,8 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
             borderRadius: '12px',
             padding: currentPreview ? '0' : '40px 20px',
             background: dragging ? 'var(--accent-bg)' : 'var(--code-bg)',
-            cursor: 'pointer', textAlign: 'center', transition: 'all .2s',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            textAlign: 'center', transition: 'all .2s',
             marginBottom: '12px', overflow: 'hidden', position: 'relative',
           }}
         >
@@ -207,7 +216,15 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
               </div>
             </div>
           )}
-          <input id="file-input" name="document" type="file" accept="image/*" onChange={handleFileChange} style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer' }} />
+          <input
+            id="file-input"
+            name="document"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            disabled={loading}
+            style={{ position: 'absolute', opacity: 0, inset: 0, cursor: loading ? 'not-allowed' : 'pointer' }}
+          />
         </label>
       ) : (
         <div style={{ padding: '20px', background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: '10px', textAlign: 'center', marginBottom: '12px' }}>
@@ -228,6 +245,17 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
         </button>
       )}
 
+      {/* Loading info — aparece mientras el OCR procesa */}
+      {loading && (
+        <div style={{ padding: '12px 16px', background: 'var(--accent-bg)', border: '1px solid var(--accent-border)', borderRadius: '10px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '16px', height: '16px', border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .8s linear infinite', flexShrink: 0 }} />
+          <div>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--accent)' }}>Procesando imagen con OCR…</p>
+            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text)' }}>Puede tardar hasta 40 segundos en móvil. No cierres la pantalla.</p>
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div style={{ color: 'var(--danger)', background: 'var(--danger-bg)', padding: '10px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px', border: '1px solid var(--danger-border)' }}>
@@ -237,11 +265,16 @@ const UploadZone = ({ verificationId, onUploadSuccess }) => {
 
       {/* Upload button */}
       {!currentUploaded && (
-        <button type="button" onClick={handleUpload} disabled={!currentFile || loading}
+        <button
+          type="button"
+          onClick={handleUpload}
+          disabled={!currentFile || loading}
           style={{ background: loading ? '#94a3b8' : 'var(--accent)', cursor: loading ? 'not-allowed' : 'pointer' }}
         >
-          {loading && <div style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />}
-          {loading ? 'Procesando OCR...' : `Subir ${LABELS[side]}`}
+          {loading && (
+            <div style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+          )}
+          {loading ? `Analizando ${LABELS[side]}... (hasta 40s)` : `Subir ${LABELS[side]}`}
         </button>
       )}
     </div>
