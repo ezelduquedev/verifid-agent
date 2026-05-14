@@ -198,7 +198,7 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
         const cleaned = word.replace(/[\.\-\s]/g, '');
         if (Math.abs(cleaned.length - docLen) <= 2) {
           const sim = fuzz.ratio(normalizedUserDoc, cleaned);
-          if (sim >= 80) return true;
+          if (sim >= 75) return true; // Bajado de 80 → tolera más errores OCR en fotos reales
         }
       }
       return false;
@@ -207,25 +207,30 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
     const normalizedUserDoc = normalizeDocNumber(userData.ndoc);
     const docIdMatch = normalizedUserDoc.length >= 4 && docNumberFuzzyMatch(normalizedUserDoc, cleanOCR);
 
-    const nameMatch = nameSim >= 65;
+    const nameMatch = nameSim >= 55; // Bajado de 65 → fotos reales de móvil dan scores más bajos
 
     const scores = calculateScores(userData, docs);
 
+    // ─── Logs de diagnóstico para calibración con fotos reales ───────────
+    console.log(`[OCR DEBUG] Texto extraído (primeros 300 chars): ${cleanOCR.substring(0, 300)}`);
+    console.log(`[OCR DEBUG] nameSim: ${nameSim} | nameMatch: ${nameMatch}`);
+    console.log(`[OCR DEBUG] ndoc buscado: ${normalizedUserDoc} | docIdMatch: ${docIdMatch}`);
+
     // ─── VALIDACIÓN OCR con tres niveles ─────────────────────────────────
-    //   - Ambos coinciden  → APPROVED
-    //   - Uno coincide     → REVIEW (revisión manual, no rechazo automático)
-    //   - Nada coincide    → REJECTED
+    //   - Ambos coinciden                     → APPROVED
+    //   - Al menos uno coincide parcialmente  → REVIEW (revisión manual)
+    //   - Nada coincide en absoluto           → REJECTED
     const ocrValid   = nameMatch && docIdMatch;
-    const ocrPartial = nameMatch || docIdMatch;
+    const ocrPartial = nameSim >= 40 || docIdMatch; // más permisivo para fotos reales
 
     if (!ocrValid && !ocrPartial) {
-      // Nada coincide → fraude o documento ilegible total
+      // Imagen completamente ilegible o datos totalmente distintos
       console.warn(`[SECURITY] OCR mismatch total en ${verificationId}. Forzando REJECTED.`);
       scores.result     = 'rejected';
       scores.trustScore = Math.min(scores.trustScore, 40);
       scores.fraudScore = Math.max(scores.fraudScore, 60);
     } else if (!ocrValid && ocrPartial) {
-      // Solo nombre o solo número coincide → revisión manual
+      // Coincidencia parcial → revisión manual en lugar de rechazo automático
       console.warn(`[SECURITY] OCR coincidencia parcial en ${verificationId}. Enviando a REVIEW.`);
       scores.result     = 'review';
       scores.trustScore = Math.min(scores.trustScore, 70);

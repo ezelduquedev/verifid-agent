@@ -7,16 +7,22 @@ const sharp = require('sharp');
  */
 const runOCR = async (imageBuffer) => {
   try {
-    // Preprocesamiento con Sharp para mejorar la lectura de fotos de móvil:
-    // - Upscale a 1800px para que Tesseract tenga más resolución
-    // - Escala de grises (elimina ruido de color y holográficos)
-    // - Normalise: ajuste automático de brillo y contraste
-    // - Sharpen: nitidez para mejorar bordes del texto
+    // Preprocesamiento agresivo para fotos de móvil en condiciones reales:
+    // - rotate():        corrige rotación EXIF automáticamente (foto en vertical/horizontal)
+    // - resize(2000):    upscale para que Tesseract tenga más resolución de trabajo
+    // - grayscale():     elimina ruido de color y holográficos del DNI
+    // - normalise():     estira el histograma de brillo (corrige subexposición/sobreexposición)
+    // - linear(1.3,-20): aumenta contraste manualmente para texto sobre fondo claro
+    // - sharpen(1.5):    nitidez agresiva para recuperar bordes del texto
+    // - median(1):       elimina ruido de píxel suelto (granularidad JPEG de móvil)
     const processedBuffer = await sharp(imageBuffer)
-      .resize({ width: 1800, withoutEnlargement: false })
+      .rotate()
+      .resize({ width: 2000, withoutEnlargement: false })
       .grayscale()
       .normalise()
-      .sharpen()
+      .linear(1.3, -20)
+      .sharpen({ sigma: 1.5 })
+      .median(1)
       .toBuffer();
 
     const { data: { text } } = await Tesseract.recognize(
