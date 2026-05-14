@@ -181,29 +181,58 @@ async function runFullAnalysis(verificationId, userId, docs, userData) {
       fuzz.partial_ratio(userData.apellido.toUpperCase(), cleanOCR)
     );
 
-    // ─── Comparación EXACTA del número de documento ───────────────────────
+    // ─── Comparación FUZZY del número de documento ────────────────────────
     function normalizeDocNumber(n) {
       return n.toUpperCase().replace(/[\.\-\s]/g, '').trim();
     }
 
+    function docNumberFuzzyMatch(normalizedUserDoc, cleanOCR) {
+      // 1. Intento exacto primero (rápido)
+      if (cleanOCR.includes(normalizedUserDoc)) return true;
+
+      // 2. Búsqueda fuzzy en palabras del tamaño del número de documento
+      //    Tolera hasta 2 caracteres mal leídos por Tesseract (0→O, 1→I, Z→2, etc.)
+      const docLen = normalizedUserDoc.length;
+      const words = cleanOCR.split(/\s+/);
+      for (const word of words) {
+        const cleaned = word.replace(/[\.\-\s]/g, '');
+        if (Math.abs(cleaned.length - docLen) <= 2) {
+          const sim = fuzz.ratio(normalizedUserDoc, cleaned);
+          if (sim >= 80) return true;
+        }
+      }
+      return false;
+    }
+
     const normalizedUserDoc = normalizeDocNumber(userData.ndoc);
-    const docIdMatch = normalizedUserDoc.length >= 4 && cleanOCR.includes(normalizedUserDoc);
+    const docIdMatch = normalizedUserDoc.length >= 4 && docNumberFuzzyMatch(normalizedUserDoc, cleanOCR);
 
     const nameMatch = nameSim >= 65;
 
     const scores = calculateScores(userData, docs);
 
-    // ─── VALIDACIÓN OCR CRÍTICA ──────────────────────────────────────────
-    const ocrValid = nameMatch && docIdMatch;
+    // ─── VALIDACIÓN OCR con tres niveles ─────────────────────────────────
+    //   - Ambos coinciden  → APPROVED
+    //   - Uno coincide     → REVIEW (revisión manual, no rechazo automático)
+    //   - Nada coincide    → REJECTED
+    const ocrValid   = nameMatch && docIdMatch;
+    const ocrPartial = nameMatch || docIdMatch;
 
-    if (!ocrValid) {
-      console.warn(`[SECURITY] OCR mismatch detectado en ${verificationId}. Forzando REJECTED.`);
-
-      scores.result = 'rejected';
+    if (!ocrValid && !ocrPartial) {
+      // Nada coincide → fraude o documento ilegible total
+      console.warn(`[SECURITY] OCR mismatch total en ${verificationId}. Forzando REJECTED.`);
+      scores.result     = 'rejected';
       scores.trustScore = Math.min(scores.trustScore, 40);
       scores.fraudScore = Math.max(scores.fraudScore, 60);
+    } else if (!ocrValid && ocrPartial) {
+      // Solo nombre o solo número coincide → revisión manual
+      console.warn(`[SECURITY] OCR coincidencia parcial en ${verificationId}. Enviando a REVIEW.`);
+      scores.result     = 'review';
+      scores.trustScore = Math.min(scores.trustScore, 70);
+      scores.fraudScore = Math.max(scores.fraudScore, 30);
     } else {
-      scores.result = 'approved';
+      // Todo coincide → aprobado
+      scores.result     = 'approved';
       scores.trustScore = Math.max(scores.trustScore, 95);
     }
 
